@@ -1,0 +1,51 @@
+{
+  "name": "htm-projection",
+  "version": "1.0.0",
+  "description": "Type-safe HTML projection library with CDN support for old and modern browsers",
+  "main": "dist/cjs/index.js",
+  "module": "dist/esm/index.js",
+  "types": "types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./types/index.d.ts",
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "types",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "npm run clean && npm run build:types && npm run build:rollup",
+    "build:types": "tsc --emitDeclarationOnly --declaration --outDir types",
+    "build:rollup": "rollup -c rollup.config.js",
+    "clean": "rimraf dist types",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "htm",
+    "html",
+    "template",
+    "projection",
+    "typescript",
+    "dom",
+    "reactivity",
+    "cdn"
+  ],
+  "author": "HTMP Author",
+  "license": "MIT",
+  "devDependencies": {
+    "rollup": "^4.10.0",
+    "@rollup/plugin-typescript": "^11.1.6",
+    "@rollup/plugin-terser": "^0.4.4",
+    "typescript": "~5.5.0",
+    "tslib": "^2.6.3",
+    "rimraf": "^6.0.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
