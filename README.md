@@ -1,0 +1,494 @@
+# HTMP
+
+    HyperText Mutation & Projection
+    Not another reactive framework. Native browser runtime.
+
+**Pattern. Proxy. Program.**
+No JSX. No Babel. No Virtual DOM. No diffing
+
+**Zero dependencies. Ready for widgets or SPA.**
+
+    HTML + Proxy = Reactivity. No framework. No build step. Just the browser
+
+HTMP is a lightweight, zero-dependency UI renderer. It brings fine-grained reactivity directly to static HTML without the need for a virtual DOM, compilers, or complex build steps.
+
+---
+
+## 🧠 How It Works
+
+When developers hear "reactivity without a virtual DOM," they ask: **how does it diff the DOM?**
+
+**It doesn't.** HTMP does not compare old and new trees. Instead, it uses a slot-based rendering architecture powered entirely by native Web APIs.
+
+### 🔷 The 3 Pillars
+
+```text
+Pattern → Parser → Proxy → Program → Precision Projection
+```
+
+| Pillar | What It Does | Powered By |
+| --- | --- | --- |
+| Pattern | Your HTML blueprint — parsed once. | DOMParser |
+| Proxy | Reactive state — changes trigger precise updates. | Proxy |
+| Program | Your methods — event handlers, logic, side effects. | Plain JavaScript |
+
+### Technical Flow
+
+1. Template Parsing: The native DOMParser reads your HTML string into a real DOM tree in memory.
+2. Registry Mapping: As HTMP traverses the DOM, it records the exact relative path (for example, root -> child[1] -> child[0]) of every `{{ }}`, `:attr`, and `:for` into a registry map.
+3. Proxy Trap: When you mutate `proxy.title = 'New'`, the native Proxy intercepts the change.
+4. Surgical Update: The Proxy checks the registry, jumps directly to the specific DOM node, and updates only its `nodeValue` or attribute.
+
+**No virtual DOM. No diffing algorithms. Just direct, surgical DOM updates.**
+
+---
+
+## ✨ Core Advantages
+
+- **Ultra-lightweight (~2.6 KB Brotli):** zero dependencies. Drop it into any project via npm or a single `<script>` tag from a CDN.
+- **Friendly guest (embeddable):** non-invasive. It does not demand ownership of the entire `<body>`. You can embed HTMP in a specific `div` inside WordPress, jQuery apps, or even inside React/Vue components without causing DOM mutation conflicts.
+- **SPA ready:** equipped with complete lifecycle controls (`mount`, `unmount`, `remount`, `destroy`). Pair it with the native browser Navigation API to build a full single-page application without a heavy router library.
+- **Slot-based rendering:** say goodbye to `if` conditionals used to prevent rendering errors. If data is `null` or `[]`, the slot simply remains empty. When data arrives, the Proxy fills the exact slot instantly. The template remains a pure, declarative projection of your state.
+
+---
+
+## 📦 Installation
+
+### Via npm
+
+```bash
+npm install htm-projection
+```
+
+### Via CDN (Browser)
+
+```js
+<script src="https://unpkg.com/htm-projection/dist/htmp.umd.js"></script>
+```
+
+---
+
+## ⚡ Quick Start
+
+This example demonstrates **initialization with an empty array `[]`**, **reactive updates**, **conditional rendering without `if`**, and **list rendering**.
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        .done { text-decoration: line-through; color: gray; }
+        button { cursor: pointer; margin: 2px; }
+    </style>
+</head>
+<body>
+    <div id="app"></div>
+
+    <script type="module">
+        import { HTMP } from 'https://unpkg.com/htm-projection/dist/htmp.esm.js';
+        
+        const template = `
+            <div>
+                <h1>{{ title }}</h1>
+                <input type="text" @input="changeTitle(e)" placeholder="Type title..." />
+                
+                <p>Count: {{ count }}</p>
+                <button @click="increment()">Increment</button>
+                
+                <hr>
+
+                <!-- If array is empty, this evaluates to a message. No v-if needed! -->
+                <p><i>{{ todos.length === 0 ? 'No todos yet. Add one below!' : '' }}</i></p>
+                <input type="text" id="todo-input" placeholder="New task..." />
+                <button @click="addTodo()">Add Todo</button>
+                
+                <ul>
+                    <li :for="todo in todos">
+                        <span :class="todo.done ? 'done' : ''">{{ todo.text }}</span>
+                        <button @click="finishTodo(todo)">Finish</button>
+                        <button @click="deleteTodo(todo)">Delete</button>
+                    </li>
+                </ul>                
+            </div>
+        `;
+
+        // 1. Initialize
+        const app = new HTMP('app', template);
+
+        // 2. Set Initial State
+        app.setProxy({
+            title: "",
+            count: 0,
+            todos: [] // Empty array is perfectly safe
+        });
+
+        // 3. Set Methods
+        app.setProgram({
+            changeTitle: (e) => { app.proxy.title = e.target.value; },
+            increment: () => { app.proxy.count++; },
+            
+            addTodo: () => {
+                const input = document.getElementById('todo-input');
+                if (!input.value.trim()) return;
+                app.proxy.todos = [...app.proxy.todos, { id: Date.now(), text: input.value, done: false }];
+                input.value = '';
+            },
+            
+            finishTodo: (todo) => {
+                const updated = app.proxy.todos.map(t => t.id === todo.id ? { ...t, done: !t.done } : t);
+                app.proxy.todos = updated;
+            },
+            
+            deleteTodo: (todo) => {
+                app.proxy.todos = app.proxy.todos.filter(t => t.id !== todo.id);
+            }
+        });
+
+        // 4. Mount to DOM
+        app.mount();
+    </script>
+</body>
+</html>
+```
+
+---
+
+## 🤝 Total Control State Management (No Magic Global Stores)
+
+HTMP does not force you into a complex global state management pattern such as Redux or Pinia. Because each projection is isolated, you can manage **cross-component state** with simple **vanilla JavaScript arrays** and **lifecycle hooks**:
+
+```javascript
+ 
+const activeProjections = [];
+
+const appProjection = new HTMP('app', appTemplate);
+
+// Register on mount, cleanup on destroy
+appProjection.onMount(() => activeProjections.push(appProjection));
+appProjection.onDestroy(() => {
+    const index = activeProjections.indexOf(appProjection);
+    if (index > -1) activeProjections.splice(index, 1);
+});
+
+// Total control: update all active projections at once
+function setLoading(isLoading) {
+    activeProjections.forEach(p => {
+        if (p.isMounted) p.proxy.loading = isLoading;
+    });
+}
+```
+
+---
+
+## 📖 API Reference
+
+For a complete list of methods, lifecycle hooks, and template syntax, please read the full API documentation.
+
+### Possibilities
+
+**The HTMP advantage across these use cases:**
+
+| Use Case | Without HTMP | With HTMP |
+| --- | --- | --- |
+| Legacy HTML | Rewrite in React | Attach projection and keep HTML |
+| PHP Blade | Add React hydration (slow) | Lightweight HTMP overlay |
+| WordPress | Heavy plugin, jQuery mess | Tiny HTMP widget |
+| SPA | Framework forced | HTMP chosen |
+| MPA + SEO | Tradeoff: SPA vs SSR | Both: static HTML + hydration |
+
+#### 1. Legacy HTML + Reactive Widget
+
+```html
+<!-- existing-page.html (static, SEO-friendly) -->
+<html>
+  <head><title>Meeting List</title></head>
+  <body>
+    <h1>Meetings</h1>
+    
+    <!-- Attach reactivity here -->
+    <div id="meeting-list"></div>
+    
+    <script src="htmp.js"></script>
+    <script src="meeting-widget.js"></script>
+  </body>
+</html>
+```
+
+```typescript
+// meeting-widget.js
+
+const projection = new HTMP('meeting-list', `
+  <ul>
+    <li :for="meeting in meetings">
+      {{ meeting.title }} - {{ meeting.status }}
+      <button @click="openMeeting(meeting.id)">Open</button>
+    </li>
+  </ul>
+  <button @click="refreshList()">Refresh</button>
+`);
+
+projection.setProxy({
+  meetings: await fetchMeetings()
+});
+
+projection.setProgram({
+  openMeeting: (id) => window.location = `/meeting/${id}`,
+  refreshList: () => projection.proxy.meetings = await fetchMeetings()
+});
+
+projection.mount();
+```
+
+#### 2. PHP Blade (Server-Rendered + Hydrated)
+
+```php
+<!-- resources/views/meeting-admin.blade.php -->
+<div class="admin-panel">
+  <h2>{{ $workspace->name }} Admin</h2>
+  
+  <!-- Server render initial data -->
+  <div id="admin-dashboard" 
+       data-role="{{ $user->role }}"
+       data-workspace="{{ $workspace->id }}">
+    <!-- Placeholder, will hydrate -->
+  </div>
+</div>
+```
+
+@vite('resources/js/admin-dashboard.ts')
+
+```typescript
+// resources/js/admin-dashboard.js
+
+const adminDash = new HTMP('admin-dashboard', `
+  <div :show="role === 'admin'">
+    <button @click="approveAllNotes()">Approve All</button>
+    <div :for="note in pendingNotes">
+      {{ note.title }}
+      <button @click="approveNote(note.id)">✓</button>
+    </div>
+  </div>
+  
+  <div :show="role === 'supervisor'">
+    <p>View only mode</p>
+  </div>
+`);
+
+const el = document.getElementById('admin-dashboard')!;
+adminDash.setProxy({
+  role: el.dataset.role || 'viewer',
+  workspaceId: el.dataset.workspace,
+  pendingNotes: []
+});
+
+adminDash.setProgram({
+  approveAllNotes: async () => {
+    await api.batch.approve(adminDash.proxy.pendingNotes);
+    adminDash.proxy.pendingNotes = [];
+  },
+  approveNote: async (id) => {
+    await api.note.approve(id);
+    adminDash.proxy.pendingNotes = 
+      adminDash.proxy.pendingNotes.filter(n => n.id !== id);
+  }
+});
+
+adminDash.mount();
+```
+
+#### 3. WordPress Plugin (Metabox Widget)
+
+```php
+// plugin: polaris-meeting/meeting-widget.php
+add_meta_box(
+  'meeting_approvals',
+  'Meeting Approvals',
+  function($post) {
+    echo '<div id="meeting-approvals"></div>';
+    wp_enqueue_script('htmp', '/htmp.min.js');
+    wp_enqueue_script('meeting-widget', '/meeting-widget.js', ['htmp']);
+  },
+  'post',
+  'advanced'
+);
+```
+
+```typescript
+// meeting-widget.ts
+const approvals = new HTMP('meeting-approvals', `
+  <div class="htmp-widget">
+    <h3>Pending Approvals</h3>
+    <div :for="meeting in pendingMeetings">
+      <strong>{{ meeting.title }}</strong><br/>
+      Status: <span :style="meetingStatusStyle(meeting.status)">
+        {{ meeting.status }}
+      </span>
+      <button @click="approveMeeting(meeting.id)">Approve</button>
+      <button @click="rejectMeeting(meeting.id)">Reject</button>
+    </div>
+    <div>
+      {{ pendingMeetings.length === 0 ? 'No pending approvals' : '' }}
+    </div>
+  </div>
+`);
+
+approvals.setProxy({
+  pendingMeetings: window.POLARIS_MEETINGS || []
+});
+
+approvals.setProgram({
+  approveMeeting: (id) => {
+    // Send to WordPress AJAX endpoint
+    jQuery.post(ajaxurl, {
+      action: 'approve_meeting',
+      meeting_id: id
+    }, () => {
+      approvals.proxy.pendingMeetings = 
+        approvals.proxy.pendingMeetings.filter(m => m.id !== id);
+    });
+  }
+});
+
+approvals.mount();
+```
+
+### SPA Patterns
+
+```text
+Pattern A: SPA (Single-Page App)
+┌─────────────────────────────────┐
+│ main.ts — Router/Orchestration  │
+├─────────────────────────────────┤
+│ <router.navigate('admin')>      │
+│   ↓ unmount current projection  │
+│   ↓ load admin projection       │
+│   ↓ mount ke root-id            │
+│                                 │
+│ <div id="app-root"></div>       │
+└─────────────────────────────────┘
+
+Pattern B: MPA (Multi-Page App)
+┌──────────────┐  ┌──────────────┐  ┌──────────────┐
+│ pages/admin/ │  │ pages/user/  │  │ pages/notes/ │
+├──────────────┤  ├──────────────┤  ├──────────────┤
+│ admin.html   │  │ user.html    │  │ notes.html   │
+│ admin.ts     │  │ user.ts      │  │ notes.ts     │
+│ (projection) │  │(projection)  │  │(projection)  │
+└──────────────┘  └──────────────┘  └──────────────┘
+     ↓                  ↓                  ↓
+  build → admin.html  build → user.html  build → notes.html
+        + admin.js          + user.js          + notes.js
+```
+
+#### File Structure: Pattern A (SPA)
+
+```text
+src/
+├── main.ts                    ← Router/orchestrator
+├── projections/
+│   ├── meeting.ts             ← Shared projection
+│   ├── admin-panel/
+│   │   ├── admin.ts           ← Projection instance
+│   │   └── admin.html         ← Template
+│   ├── user-panel/
+│   │   ├── user.ts
+│   │   └── user.html
+│   └── notes/
+│       ├── notes.ts
+│       └── notes.html
+└── index.html                 ← Single entry (id="app-root")
+```
+
+```typescript
+// main.ts — SPA orchestrator
+import { AdminProjection } from './projections/admin-panel/admin';
+import { UserProjection } from './projections/user-panel/user';
+
+const router = {
+  navigate: async (route: string) => {
+    // Unmount current
+    currentProjection?.unmount();
+    
+    // Load & mount new projection
+    if (route === 'admin') {
+      currentProjection = new AdminProjection();
+      currentProjection.mount('app-root');
+    } else if (route === 'user') {
+      currentProjection = new UserProjection();
+      currentProjection.mount('app-root');
+    }
+  }
+};
+
+router.navigate('user'); // Start
+```
+
+#### File Structure: Pattern B (MPA - Svelte-like)
+
+```text
+pages/
+├── admin/
+│   ├── index.ts               ← Entry point
+│   ├── index.html             ← Template (id="app")
+│   └── admin-projection.ts    ← Projection
+├── user/
+│   ├── index.ts
+│   ├── index.html
+│   └── user-projection.ts
+└── notes/
+    ├── index.ts
+    ├── index.html
+    └── notes-projection.ts
+```
+
+```typescript
+// pages/admin/index.ts
+import { AdminProjection } from './admin-projection';
+
+const admin = new AdminProjection();
+admin.mount('app');
+
+// pages/user/index.ts
+import { UserProjection } from './user-projection';
+
+const user = new UserProjection();
+user.mount('app');
+
+// Bundler config (Vite/rollup) output multiple HTML + JS pairs
+// Deployment: /admin.html, /user.html, /notes.html
+// Navigation: window.location = '/admin.html' (hard navigation)
+```
+
+#### Hybrid Pattern: Best of Both
+
+```text
+src/
+├── main.ts                    ← SPA router (if needed)
+├── shared/
+│   ├── meeting-projection.ts  ← Shared across pages
+│   └── types.ts
+├── pages/
+│   ├── admin/
+│   │   ├── index.ts           ← Can be SPA route OR MPA entry
+│   │   ├── index.html
+│   │   └── admin-projection.ts
+│   └── user/
+│       ├── index.ts
+│       ├── index.html
+│       └── user-projection.ts
+└── index.html                 ← SPA entry OR MPA fallback
+```
+
+### Flexibility Options
+
+- **Build as SPA** (single entry, client-side routing)
+- **Build as MPA** (multiple entries, server-side routing)
+- **Build as hybrid** (SPA for admin panel, MPA for public pages)
+- **The same projection code works for all three**
+
+---
+
+## License
+
+MIT
