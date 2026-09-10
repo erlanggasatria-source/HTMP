@@ -18,13 +18,12 @@ export type {
   TextBinding 
 } from './types';
 
-type ProxyState = Record<string, unknown>;
 type EventHandlerElement = HTMLElement & Record<string, ((event: Event) => void) | null>;
 
-export class HTMP {
+export class HTMP<T extends Record<string, any> = Record<string, any>> {
   private rootId: string;
   private parser: DOMParser;
-  public proxy: ProxyState;
+  public proxy: T;
   private dom: Element | null;
   public programs: Record<string, ProgramCallback>;
   private registry: Record<string, RegistryBinding[]>;
@@ -62,20 +61,20 @@ export class HTMP {
         if (self.isMounted) self.renderDiff();
         return true;
       }
-    });
+    }) as T;
     
     if (this.dom) {
       this.compile(this.dom, []);
     }
   }
 
-  setProxy(keyOrObject: string | ProxyState, value?: unknown): void {
+  setProxy(keyOrObject: keyof T | Partial<T>, value?: unknown): void {
     if (typeof keyOrObject === 'object' && !Array.isArray(keyOrObject)) {
       Object.keys(keyOrObject).forEach(k => {
-        this.proxy[k] = keyOrObject[k];
+        (this.proxy as any)[k] = (keyOrObject as any)[k];
       });
     } else {
-      this.proxy[keyOrObject as string] = value;
+      (this.proxy as any)[keyOrObject as string] = value;
     }
   }
 
@@ -98,6 +97,14 @@ export class HTMP {
     if (typeof obj !== 'object' || obj === null) return obj as DeepReactive<T>;
     const self = this;
     return new Proxy(obj, {
+      get(target, key, receiver) {
+        const val = Reflect.get(target, key, receiver);
+        // Jika valuenya adalah object/array, bungkus dengan Proxy juga!
+        if (typeof val === 'object' && val !== null) {
+          return self.makeDeepReactive(val, proxyKey);
+        }
+        return val;
+      },
       set(target, key, value: unknown) {
         Reflect.set(target, key, value);
         self.pendingDiff.add(proxyKey);
@@ -310,10 +317,31 @@ export class HTMP {
         val = func(this.proxy);
       } catch(e) { val = undefined; }
       
-      if (val !== undefined && val !== false && val !== null) {
-        el.setAttribute(binding.attrName, String(val));
-      } else if (val === false) {
-        el.removeAttribute(binding.attrName);
+      const realAttrName = binding.attrName;
+      const strVal = String(val);
+
+      // KHUSUS FORM ELEMENTS
+      if (realAttrName === 'value' && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT')) {
+        if ((el as HTMLInputElement).value !== strVal) {
+          (el as HTMLInputElement).value = strVal;
+        }
+        if (el.tagName === 'SELECT') {
+          Array.from(el.querySelectorAll('option')).forEach((opt: Element) => {
+            const htmlOpt = opt as HTMLOptionElement;
+            if (htmlOpt.value === strVal) {
+              if (!htmlOpt.selected) htmlOpt.selected = true;
+            } else {
+              if (htmlOpt.selected) htmlOpt.selected = false;
+            }
+          });
+        }
+      } 
+      else if (val === false || val === null || val === undefined) {
+        el.removeAttribute(realAttrName);
+      } else if (val === true) {
+        el.setAttribute(realAttrName, '');
+      } else {
+        el.setAttribute(realAttrName, strVal);
       }
     }
   }
@@ -440,20 +468,35 @@ export class HTMP {
           const expr = attr.value;
           const val = evalInLoop(expr, item);
 
-          // KHUSUS INPUT/SELECT/TEXTAREA: Set properti .value BUKAN atribut
-          if (realAttrName === 'value' && (cEl instanceof HTMLInputElement || cEl instanceof HTMLTextAreaElement || cEl instanceof HTMLSelectElement)) {           
-            if (cEl.value !== String(val)) {
-              (cEl as HTMLInputElement).value = String(val);
+          // KHUSUS FORM ELEMENTS: Set properti .value, BUKAN atribut
+          if (realAttrName === 'value' && (cEl.tagName === 'INPUT' || cEl.tagName === 'TEXTAREA' || cEl.tagName === 'SELECT')) {
+            const strVal = String(val);
+            if ((cEl as HTMLInputElement).value !== strVal) {
+              (cEl as HTMLInputElement).value = strVal;
             }
-          } else {
-            if (val === false || val === null || val === undefined) {
-              cEl.removeAttribute(realAttrName);
-            } else if (val === true) {
-              cEl.setAttribute(realAttrName, '');
-            } else {
-              cEl.setAttribute(realAttrName, String(val));
+            
+            // KHUSUS SELECT: Setelah set value, pastikan option yang sesuai ter-selected
+            if (cEl.tagName === 'SELECT') {
+              Array.from(cEl.querySelectorAll('option')).forEach((opt: Element) => {
+                const htmlOpt = opt as HTMLOptionElement;
+                if (htmlOpt.value === strVal) {
+                  if (!htmlOpt.selected) htmlOpt.selected = true;
+                } else {
+                  if (htmlOpt.selected) htmlOpt.selected = false;
+                }
+              });
             }
-          }
+          } 
+          // BOOLEAN ATTRIBUTES (seperti disabled, checked)
+          else if (val === false || val === null || val === undefined) {
+            cEl.removeAttribute(realAttrName);
+          } else if (val === true) {
+            cEl.setAttribute(realAttrName, '');
+          } 
+          // ATRIBUT BIASA (class, href, dll)
+          else {
+            cEl.setAttribute(realAttrName, String(val));
+          }        
           if (isFirstRender) cEl.removeAttribute(attr.name);
         }
       }
@@ -538,7 +581,7 @@ export class HTMP {
     }
 
     this.registry = {};
-    this.proxy = {};
+    this.proxy = {} as T;
     this.programs = {};
     this.pendingDiff.clear();
     this.dom = null;

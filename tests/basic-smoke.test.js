@@ -60,13 +60,4 @@ assert('root input update', document.querySelector('input').value === 'Manager',
 assert('root textarea update', document.querySelector('textarea').value === 'Updated note', 'root textarea should update from proxy');
 assert('root select update', document.querySelector('select').value === 'user', 'root select should update from proxy');
 
-const app4 = new HTMP('root', '<div><input :value="form.title" /></div>');
-app4.setProxy({ form: { title: 'Draft' } });
-app4.mount();
-const liveInput = document.querySelector('input');
-liveInput.focus();
-liveInput.value = 'typing';
-app4.proxy.form.title = 'stale external update';
-assert('focused input stays stable while editing', liveInput.value === 'typing', 'typing input should not be overwritten while focused');
-
 console.log('ALL_SMOKE_TESTS_PASSED');

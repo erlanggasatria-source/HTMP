@@ -1,20 +1,21 @@
 // rollup.config.js
-import typescript from '@rollup/plugin-typescript';
-import terser from '@rollup/plugin-terser';
-import path from 'path';
+const typescript = require('@rollup/plugin-typescript');
+const terser = require('@rollup/plugin-terser');
 
-export default [
+module.exports = [
   {
     input: 'src/index.ts',
     output: [
       {
         file: 'dist/esm/index.js',
         format: 'esm',
+        exports: 'named',
         sourcemap: true
       },
       {
         file: 'dist/cjs/index.js',
         format: 'cjs',
+        exports: 'named',
         sourcemap: true
       }
     ],
@@ -27,7 +28,7 @@ export default [
       }),
       terser({
         output: {
-          ecma: 5, // For old browser support
+          ecma: 5,
           comments: false
         }
       })
@@ -59,7 +60,7 @@ export default [
       }),
       terser({
         output: {
-          ecma: 5, // For old browser support
+          ecma: 5,
           comments: false
         }
       })
