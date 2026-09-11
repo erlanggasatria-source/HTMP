@@ -1,0 +1,172 @@
+:root {
+  --bg-main: #0f172a;
+  --bg-card-draft: #1e293b;
+  --bg-card-locked: #181e29;
+  --border-draft: #3b82f6;
+  --border-locked: #64748b;
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --accent-draft: #3b82f6;
+  --accent-locked: #ef4444;
+}
+
+body {
+  margin: 0;
+  background-color: var(--bg-main);
+  color: var(--text-main);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  padding: 2rem;
+}
+
+.app-container {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+/* Form Styling */
+.note-form {
+  background: #1e293b;
+  padding: 1.5rem;
+  border-radius: 12px;
+  border: 1px solid #334155;
+  margin-bottom: 2.5rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.note-form input, .note-form textarea {
+  width: 100%;
+  background: #0f172a;
+  border: 1px solid #334155;
+  color: #fff;
+  padding: 0.75rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  box-sizing: border-box;
+}
+
+.note-form button {
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.note-form button:hover {
+  background: #1d4ed8;
+}
+
+/* Card Grid Layout */
+.note-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1.25rem;
+}
+
+/* Base Card Style */
+.note-card {
+  border-radius: 12px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: transform 0.2s, box-shadow 0.2s;
+  position: relative;
+  border-left: 5px solid;
+}
+
+/* Status Variant: DRAFT */
+.note-card.status-draft {
+  background: var(--bg-card-draft);
+  border-color: var(--border-draft);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.08);
+}
+
+.note-card.status-draft:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.15);
+}
+
+/* Status Variant: LOCKED */
+.note-card.status-locked {
+  background: var(--bg-card-locked);
+  border-color: var(--border-locked);
+  opacity: 0.8;
+}
+
+/* Card Elements */
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  letter-spacing: 0.5px;
+}
+
+.badge-draft {
+  background: rgba(59, 130, 246, 0.2);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.4);
+}
+
+.badge-locked {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+}
+
+.card-title {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.1rem;
+  color: #f1f5f9;
+}
+
+.card-body {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  margin-bottom: 1.25rem;
+  flex-grow: 1;
+}
+
+/* Card Action Buttons */
+.card-actions {
+  display: flex;
+  gap: 0.5rem;
+  border-top: 1px solid #334155;
+  padding-top: 0.75rem;
+}
+
+.card-actions button {
+  flex: 1;
+  background: #334155;
+  color: #f8fafc;
+  border: none;
+  padding: 0.5rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.card-actions button:hover:not(:disabled) {
+  background: #475569;
+}
+
+.card-actions button:disabled {
+  background: #1e293b;
+  color: #475569;
+  cursor: not-allowed;
+  opacity: 0.5;
+}

@@ -217,12 +217,28 @@ Use `@` to bind DOM events to registered program handlers.
 <!-- With explicit Event object -->
 <input @input="handleInput(e)" />
 
+<!-- With additional arguments -->
+<input @input="updateField(e, 'email')" />
+<input @input="updateField(e, 'lastName')" />
+
 <!-- With parameters from a loop -->
 <button @click="toggleTodo(todo)">Complete</button>
 
 <!-- Without parameters (empty parentheses) -->
 <button @click="closeModal()">Close</button>
 ```
+
+HTMP supports passing extra arguments alongside the native `Event` object. This allows a single reusable handler to update different fields without creating one method per input.
+
+```js
+setProgram({
+  updateField: (e, fieldName) => {
+    form[fieldName] = e.target.value;
+  }
+});
+```
+
+This is especially useful for form flows, multi-step wizards, and dynamic inputs where many fields share the same update pattern.
 
 ### List Rendering
 

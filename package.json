@@ -1,7 +1,7 @@
 {
   "name": "htm-projection",
-  "version": "1.0.0",
-  "description": "Type-safe HTML projection library with CDN support for old and modern browsers",
+  "version": "1.0.1",
+  "description": "HTMP is a lightweight, zero-dependency UI renderer. It brings fine-grained reactivity directly to static HTML without the need for a virtual DOM, compilers, or complex build steps.",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",
   "types": "types/index.d.ts",
@@ -36,10 +36,18 @@
     "reactivity",
     "cdn"
   ],
-  "author": "HTMP Author",
+  "author": "Erlangga Satria",
   "license": "MIT",
+  "homepage": "https://github.com/erlanggasatria-source/HTMP#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/erlanggasatria-source/HTMP.git"
+  },
+  "bugs": {
+    "url": "https://github.com/erlanggasatria-source/HTMP/issues"
+  },
   "devDependencies": {
-    "@rollup/plugin-terser": "^0.4.4",
+    "@rollup/plugin-terser": "^1.0.0",
     "@rollup/plugin-typescript": "^11.1.6",
     "jsdom": "^30.0.1",
     "rimraf": "^6.0.1",

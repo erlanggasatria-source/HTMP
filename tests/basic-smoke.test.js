@@ -60,4 +60,53 @@ assert('root input update', document.querySelector('input').value === 'Manager',
 assert('root textarea update', document.querySelector('textarea').value === 'Updated note', 'root textarea should update from proxy');
 assert('root select update', document.querySelector('select').value === 'user', 'root select should update from proxy');
 
+// ==========================================
+// TEST 4: Smart Event Arguments, Boolean Attributes & Select Value
+// ==========================================
+const app4 = new HTMP('root', `
+  <div>
+    <input id="test-input" @input="updateField(e, 'email')" :disabled="isLocked" />
+    <select id="test-select" :value="role">
+      <option value="admin">Admin</option>
+      <option value="user">User</option>
+    </select>
+  </div>
+`);
+
+let capturedEvent = null;
+let capturedParam = null;
+
+app4.setProxy({
+  isLocked: true,
+  role: 'user'
+});
+
+app4.setProgram({
+  updateField: (e, paramName) => {
+    capturedEvent = e;
+    capturedParam = paramName;
+  }
+});
+
+app4.mount();
+
+// Test 4A: Boolean Attribute (:disabled)
+assert('boolean attribute true', document.querySelector('#test-input').hasAttribute('disabled') === true, 'disabled should be present when true');
+app4.proxy.isLocked = false;
+assert('boolean attribute false', document.querySelector('#test-input').hasAttribute('disabled') === false, 'disabled should be removed when false');
+
+// Test 4B: Smart Event Arguments (@input with e and string)
+const testInput = document.querySelector('#test-input');
+testInput.value = 'test@example.com';
+testInput.dispatchEvent(new window.Event('input'));
+
+assert('event argument passed', capturedEvent !== null && capturedEvent.target !== undefined, 'should pass the native Event object');
+assert('string argument passed', capturedParam === 'email', 'should pass string literal "email" correctly');
+
+// Test 4C: Select Value Binding
+const testSelect = document.querySelector('#test-select');
+assert('select initial value', testSelect.value === 'user', 'select should render initial proxy value');
+app4.proxy.role = 'admin';
+assert('select reactive update', testSelect.value === 'admin', 'select should update value when proxy changes');
+
 console.log('ALL_SMOKE_TESTS_PASSED');

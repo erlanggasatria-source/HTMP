@@ -45,10 +45,26 @@ Pattern → Parser → Proxy → Program → Precision Projection
 
 ## ✨ Core Advantages
 
-- **Ultra-lightweight (~2.6 KB Brotli):** zero dependencies. Drop it into any project via npm or a single `<script>` tag from a CDN.
+- **Ultra-lightweight (~2.8 KB min zip):** zero dependencies. Drop it into any project via npm or a single `<script>` tag from a CDN.
 - **Friendly guest (embeddable):** non-invasive. It does not demand ownership of the entire `<body>`. You can embed HTMP in a specific `div` inside WordPress, jQuery apps, or even inside React/Vue components without causing DOM mutation conflicts.
 - **SPA ready:** equipped with complete lifecycle controls (`mount`, `unmount`, `remount`, `destroy`). Pair it with the native browser Navigation API to build a full single-page application without a heavy router library.
 - **Slot-based rendering:** say goodbye to `if` conditionals used to prevent rendering errors. If data is `null` or `[]`, the slot simply remains empty. When data arrives, the Proxy fills the exact slot instantly. The template remains a pure, declarative projection of your state.
+
+---
+
+## 📦 Verified Bundle Size
+
+[![BundlePhobia](https://badgen.net/bundlephobia/minzip/htm-projection)](https://bundlephobia.com/package/htm-projection)
+
+| Metric | Value |
+| :--- | :--- |
+| Bundle Size (Minified) | **8.3 kB** |
+| **Minified + Gzipped** | **2.9 kB** |
+| Download (Slow 3G) | **55 ms** |
+| Download (Emerging 4G) | **3 ms** |
+
+> Verified independently by [BundlePhobia](https://bundlephobia.com/package/htm-projection).
+
 
 ---
 
@@ -63,7 +79,7 @@ npm install htm-projection
 ### Via CDN (Browser)
 
 ```js
-<script src="https://unpkg.com/htm-projection/dist/htmp.umd.js"></script>
+<script src="https://unpkg.com/htm-projection/dist/esm/index.js"></script>
 ```
 
 ---
@@ -86,7 +102,7 @@ This example demonstrates **initialization with an empty array `[]`**, **reactiv
     <div id="app"></div>
 
     <script type="module">
-        import { HTMP } from 'https://unpkg.com/htm-projection/dist/htmp.esm.js';
+        import { HTMP } from 'https://unpkg.com/htm-projection/dist/esm/index.js';
         
         const template = `
             <div>
@@ -153,6 +169,66 @@ This example demonstrates **initialization with an empty array `[]`**, **reactiv
 ```
 
 ---
+## Example
+
+### 1. HTMP Basic Example
+
+Live demo: <https://polaris-runtime.my.id/htmp-basic-example>
+
+    Runs directly from file:// — no server, no build step, no npm install.
+
+A single index.html demonstrating:
+
+- Slot-based rendering — empty title and empty todo list, no if conditional needed.
+
+- Reactive updates — title updates instantly as you type.
+
+- List rendering — todos appear with working action buttons.
+
+- No framework — plain HTML + one `<script>` tag.
+
+```js
+  app.setProxy({
+            title: "",
+            count: 0,
+            todos: [] // Empty array is perfectly safe
+        });
+```
+
+What to notice: The title starts empty. The todo list starts empty. No if, no else, no conditional rendering — the pattern is always there, and state fills the slots.
+
+### 2. HTMP Multi-Step Form Example
+
+Live demo: <https://polaris-runtime.my.id/htmp-multi-step-form>
+
+This example lives in `examples/multi step form/index.html` and demonstrates a three-step wizard form with shared state, dynamic step visibility, and event-driven field updates.
+
+A few things it highlights:
+
+- `currentStep` drives the visible form section without any manual DOM branching.
+- `formData` is stored in a single reactive object and updated through one generic field handler.
+- Previous/Next navigation is handled through simple program methods while keeping the template declarative.
+
+```html
+<div class="step" :style="currentStep === 1 ? 'display: block' : 'display: none'">
+  <h3>Create Account</h3>
+  <input :value="formData.email" @input="updateField(e, 'email')" />
+</div>
+```
+
+### 3. HTMP Note APP
+
+Live demo: <https://polaris-runtime.my.id/htmp-note>
+
+HTMP as presentation layer of TypeScript project,
+
+```bash
+cd examples/note-with-polaris
+npm install
+npm run dev
+```
+
+---
 
 ## 🤝 Total Control State Management (No Magic Global Stores)
 
@@ -183,7 +259,9 @@ function setLoading(isLoading) {
 
 ## 📖 API Reference
 
-For a complete list of methods, lifecycle hooks, and template syntax, please read the full API documentation.
+For a complete list of methods, lifecycle hooks, and template syntax, please read the full [API](https://github.com/erlanggasatria-source/HTMP/blob/main/API.md) documentation.
+
+---
 
 ### Possibilities
 
@@ -486,6 +564,20 @@ src/
 - **Build as MPA** (multiple entries, server-side routing)
 - **Build as hybrid** (SPA for admin panel, MPA for public pages)
 - **The same projection code works for all three**
+
+---
+
+## 🧪 Tested & Stable
+
+HTMP is covered by smoke tests for:
+
+    Text inputs, textareas, selects
+
+    Boolean attribute bindings (:disabled, :checked)
+
+    Form interactions — no flicker, no loss of focus
+
+    Deep reactivity on nested objects and arrays
 
 ---
 

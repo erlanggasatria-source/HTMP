@@ -152,12 +152,20 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
           
           if (match) {
             const programName = match[1];
-            const paramName = match[2].trim();
+            const argsStr = match[2].trim();
+            const argTokens = argsStr ? argsStr.split(',').map(s => s.trim()) : [];
+            
             (node as Element & { [key: string]: unknown })[`on${eventName}`] = (e: Event) => {
               if (this.programs[programName]) {
-                if (paramName === 'e' || paramName === 'event') this.programs[programName](e);
-                else if (paramName === '') this.programs[programName]();
-                else this.programs[programName](paramName);
+                const finalArgs = argTokens.map(token => {
+                  if (token === 'e' || token === 'event') return e;
+                  if ((token.startsWith("'") && token.endsWith("'")) || (token.startsWith('"') && token.endsWith('"'))) {
+                    return token.slice(1, -1);
+                  }
+                  if (!isNaN(Number(token))) return Number(token);
+                  return token;
+                });
+                this.programs[programName](...finalArgs);
               }
             };
           } else {
@@ -442,15 +450,21 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
           
           if (match) {
             const programName = match[1];
-            const paramName = match[2].trim();
+            const argsStr = match[2].trim();
+            const argTokens = argsStr ? argsStr.split(',').map(s => s.trim()) : [];
             
-            // === SOLUSI: Selalu perbarui handler agar捕获 (capture) `item` terbaru! ===
             (cEl as EventHandlerElement)[`on${eventName}`] = (e: Event) => {
               if (this.programs[programName]) {
-                if (paramName === 'e' || paramName === 'event') this.programs[programName](e);
-                else if (paramName === itemName) this.programs[programName](item); // `item` di sini selalu referensi terbaru!
-                else if (paramName === '') this.programs[programName]();
-                else this.programs[programName](paramName);
+                const finalArgs = argTokens.map(token => {
+                  if (token === 'e' || token === 'event') return e;
+                  if ((token.startsWith("'") && token.endsWith("'")) || (token.startsWith('"') && token.endsWith('"'))) {
+                    return token.slice(1, -1);
+                  }
+                  if (!isNaN(Number(token))) return Number(token);
+                  if (typeof itemName !== 'undefined' && token === itemName) return item;
+                  return token;
+                });
+                this.programs[programName](...finalArgs);
               }
             };
           } else {
@@ -460,7 +474,6 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
             };
           }
           
-          // Hapus atribut custom @ dari DOM hanya saat first render
           if (isFirstRender) cEl.removeAttribute(attr.name);
         }
         else if (attr.name.startsWith(':')) {
