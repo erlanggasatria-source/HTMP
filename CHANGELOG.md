@@ -9,14 +9,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 ### ✨ Added
 
 - **Smart Event Argument Parsing**: 
-    **`@event`** now **accepts additional arguments** directly from the pattern — e.g., `@input="updateField(e, 'lastName')"`.
-
-    Before:
-    ```html
-    <input @input="updateFirstName" />
-    <input @input="updateLastName" />
-    <input @input="updateEmail" />
-    ```
+    **`@event`** now **accepts additional arguments** 
+    - Example: `@input="updateField(e, 'lastName')"`
+    - Before: `@input="updateFirstName"` → `@input="updateLastName"` → separate handlers.
+    - After: one handler for many fields.
+    - **Trade-off:** +0.1 kB gzip (2.8 → 2.9 kB).
 - **Typed Event Callbacks**: Improved compatibility for async handlers and typed callback signatures, including `Event`-based parameters in `ProgramCallback`.
 
 ### ⚡ Performance
