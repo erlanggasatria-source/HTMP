@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HTMP Simple SPA Ticket Demo</title>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --panel: #ffffff;
+      --primary: #2f6fed;
+      --primary-soft: #edf3ff;
+      --text: #1e293b;
+      --muted: #64748b;
+      --border: #dfe7f3;
+      --success: #1e9d66;
+      --warning: #d97706;
+      --danger: #d14343;
+      --shadow: 0 14px 34px rgba(15, 23, 42, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: linear-gradient(135deg, #eef5ff 0%, #f8fbff 100%);
+      color: var(--text);
+      padding: 40px 20px;
+    }
+
+    .page {
+      max-width: 980px;
+      margin: 0 auto;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      padding: 24px;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .topbar h1 {
+      margin: 0;
+      font-size: clamp(1.5rem, 2vw, 2.2rem);
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: var(--primary-soft);
+      color: var(--primary);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .section {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: #fbfdff;
+      padding: 18px;
+    }
+
+    .ticket-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      gap: 12px;
+    }
+
+    .ticket-item {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      background: #fff;
+    }
+
+    .ticket-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+
+    .ticket-id {
+      font-weight: 700;
+      color: var(--primary);
+    }
+
+    .status {
+      display: inline-block;
+      padding: 5px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .status.open {
+      background: rgba(29, 157, 102, 0.12);
+      color: var(--success);
+    }
+
+    .status.pending {
+      background: rgba(217, 119, 6, 0.12);
+      color: var(--warning);
+    }
+
+    .ticket-item a {
+      color: var(--text);
+      text-decoration: none;
+      font-weight: 700;
+    }
+
+    .ticket-item a:hover {
+      text-decoration: underline;
+    }
+
+    .meta {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .detail-card {
+      display: grid;
+      gap: 18px;
+    }
+
+    .detail-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 8px;
+    }
+
+    .back-link {
+      display: inline-block;
+      padding: 10px 14px;
+      border-radius: 10px;
+      background: var(--primary-soft);
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 700;
+    }
+
+    .detail-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+    }
+
+    .info-box {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #fff;
+      padding: 14px;
+    }
+
+    .label {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--muted);
+      font-size: 0.8rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    .value {
+      line-height: 1.6;
+      margin: 0;
+      word-break: break-word;
+    }
+
+    .empty {
+      color: var(--muted);
+      margin: 0;
+    }
+
+    @media (max-width: 640px) {
+      .page {
+        padding: 18px 16px;
+      }
+
+      .topbar {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+
+  <script type="module">
+    import { HTMP } from 'https://unpkg.com/htm-projection@latest/dist/esm/index.js';
+
+    const tickets = [
+      {
+        id: 1,
+        title: 'Login fails after OTP verification',
+        status: 'open',
+        createdBy: 'Rina',
+        problem: 'After entering the OTP code, the system keeps redirecting back to the login page and I cannot access the dashboard.',
+        answer: 'The issue was caused by an expired token session during OTP processing. The backend team has updated the expired-token validation and re-verified the login flow.'
+      },
+      {
+        id: 2,
+        title: 'Invoice data does not appear',
+        status: 'pending',
+        createdBy: 'Dimas',
+        problem: 'The latest invoice is missing from the transaction history page even though it has already been paid.',
+        answer: 'The query layer was filtering out the default date range, which excluded today\'s transactions. This has been fixed so all valid invoices are displayed.'
+      },
+      {
+        id: 3,
+        title: 'Excel export is blank',
+        status: 'open',
+        createdBy: 'Sari',
+        problem: 'The Excel export file downloads successfully, but the sheet is empty and contains no data columns.',
+        answer: 'The export column mapping was incorrect. We replaced the formatter so the exported data matches the correct file structure.'
+      },
+      {
+        id: 4,
+        title: 'Admin menu access is blocked',
+        status: 'pending',
+        createdBy: 'Fajar',
+        problem: 'The admin account can log in, but the user management menu is not visible after login.',
+        answer: 'The role permissions for the admin account were not yet updated in the access configuration. The required permissions were added for that menu.'
+      },
+      {
+        id: 5,
+        title: 'Support contact page does not open',
+        status: 'open',
+        createdBy: 'Nia',
+        problem: 'The support contact link in the footer does not open and keeps redirecting to an error page.',
+        answer: 'The contact URL was configured incorrectly in the routing settings. It has been corrected and tested in the main browser flow.'
+      }
+    ];
+
+    const template = `
+      <div class="page">
+        <header class="topbar">
+          <h1>Helpdesk Tickets</h1>
+          <span class="pill">SPA Demo</span>
+        </header>
+
+        <section class="section" :style="route === 'list' ? 'display: block' : 'display: none'">
+          <ul class="ticket-list">
+            <li :for="ticket in tickets" class="ticket-item">
+              <div class="ticket-head">
+                <span class="ticket-id">#{{ ticket.id }}</span>
+                <span :class="ticket.status === 'open' ? 'status open' : 'status pending'">{{ ticket.status }}</span>
+              </div>
+              <a :href="'/ticket/'+ticket.id" @click="openTicket(ticket, e)">{{ ticket.title }}</a>
+              <p class="meta">Created by {{ ticket.createdBy }}</p>
+            </li>
+          </ul>
+        </section>
+
+        <section class="section" :style="route === 'detail' ? 'display: block' : 'display: none'">
+          <div class="detail-card">
+            <div class="detail-header">
+              <h2 style="margin: 0;">Ticket #{{ selectedTicket.id }}</h2>
+              <a class="back-link" href="/" @click="goHome(e)">Back to list</a>
+            </div>
+
+            <div class="detail-grid">
+              <div class="info-box">
+                <span class="label">Ticket creator</span>
+                <p class="value">{{ selectedTicket.createdBy }}</p>
+              </div>
+
+              <div class="info-box">
+                <span class="label">Status</span>
+                <p class="value">{{ selectedTicket.status }}</p>
+              </div>
+            </div>
+
+            <div class="info-box">
+              <span class="label">Problem</span>
+              <p class="value">{{ selectedTicket.problem }}</p>
+            </div>
+
+            <div class="info-box">
+              <span class="label">Technician response</span>
+              <p class="value">{{ selectedTicket.answer }}</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" :style="route === 'not-found' ? 'display: block' : 'display: none'">
+          <div class="detail-card">
+            <div class="detail-header">
+              <h2 style="margin: 0;">Ticket not found</h2>
+              <a class="back-link" href="/" @click="goHome(e)">Back to list</a>
+            </div>
+            <p class="empty">The requested ticket does not exist or may have been removed. Please return to the ticket list.</p>
+          </div>
+        </section>
+      </div>
+    `;
+
+    const app = new HTMP('app', template);
+
+    app.setProxy({
+      tickets,
+      route: 'list',
+      selectedTicket: tickets[0]
+    });
+
+    const getBasePath = () => {
+      const currentPath = window.location.pathname;
+      const basePath = '/htmp-spa-ticket';
+      if (currentPath.startsWith(basePath)) {
+        return basePath;
+      }
+      return '';
+    };
+
+    const getCurrentPath = () => {
+      const basePath = getBasePath();
+      const currentPath = window.location.pathname;
+      if (basePath && currentPath.startsWith(basePath)) {
+        return currentPath.slice(basePath.length) || '/';
+      }
+      return currentPath || '/';
+    };
+
+    const navigateTo = (path) => {
+      const basePath = getBasePath();
+      const nextUrl = `${basePath}${path}`;
+      history.pushState({}, '', nextUrl);
+      syncFromLocation();
+    };
+
+    const syncFromLocation = () => {
+      const currentPath = getCurrentPath();
+      const match = currentPath.match(/^\/ticket\/(\d+)$/);
+
+      if (match) {
+        const id = Number(match[1]);
+        const nextTicket = tickets.find((ticket) => ticket.id === id);
+
+        if (nextTicket) {
+          app.proxy.route = 'detail';
+          app.proxy.selectedTicket = nextTicket;
+          return;
+        }
+
+        app.proxy.route = 'not-found';
+        app.proxy.selectedTicket = null;
+        return;
+      }
+
+      app.proxy.route = 'list';
+      app.proxy.selectedTicket = tickets[0];
+    };
+
+    app.setProgram({
+      openTicket: (ticket, e) => {
+        e.preventDefault();
+        navigateTo(`/ticket/${ticket.id}`);
+        app.proxy.route = 'detail';
+        app.proxy.selectedTicket = ticket;
+      },
+      goHome: (e) => {
+        e.preventDefault();
+        navigateTo('/');
+        app.proxy.route = 'list';
+        app.proxy.selectedTicket = tickets[0];
+      }
+    });
+
+    window.addEventListener('popstate', syncFromLocation);
+    syncFromLocation();
+    app.mount();
+  </script>
+</body>
+</html>

@@ -203,11 +203,15 @@
             </p>
         </div>
 
+        <div style="display: flex; gap: 12px; margin-bottom: 22px; flex-wrap: wrap;">
+            <button id="unmount-app" class="secondary" type="button">Unmount App</button>
+            <button id="remount-app" class="secondary" type="button">Remount App</button>
+        </div>
         <div id="app"></div>
     </main>
 
     <script type="module">
-        import { HTMP } from 'https://unpkg.com/htm-projection/dist/esm/index.js';
+        import { HTMP } from 'https://esm.sh/htm-projection@latest';
 
         const template = `
             <div class="todo-card">
@@ -274,6 +278,14 @@
         });
 
         app.mount();
+
+        document.getElementById('unmount-app').addEventListener('click', () => {
+            app.unmount();
+        });
+
+        document.getElementById('remount-app').addEventListener('click', () => {
+            app.remount();
+        });
     </script>
 </body>
 </html>

@@ -79,8 +79,16 @@ npm install htm-projection
 ### Via CDN (Browser)
 
 ```js
-<script src="https://unpkg.com/htm-projection/dist/esm/index.js"></script>
+<script src="https://unpkg.com/htm-projection@latest/dist/esm/index.js"></script>
 ```
+
+Use HTMP directly in the browser — no build step, no npm install.
+
+| CDN | ESM URL |
+| :--- | :--- |
+| **jsDelivr** | `https://cdn.jsdelivr.net/npm/htm-projection@latest/dist/esm/index.js` |
+| **unpkg** | `https://unpkg.com/htm-projection@latest/dist/esm/index.js` |
+| **esm.sh** | `https://esm.sh/htm-projection@latest` |
 
 ---
 
@@ -197,6 +205,46 @@ A single index.html demonstrating:
 
 What to notice: The title starts empty. The todo list starts empty. No if, no else, no conditional rendering — the pattern is always there, and state fills the slots.
 
+You can also mount and unmount the app dynamically for SPA-style behavior:
+
+```html
+<div style="display: flex; gap: 12px; margin-bottom: 16px;">
+  <button id="unmount-app" type="button">Unmount App</button>
+  <button id="remount-app" type="button">Remount App</button>
+</div>
+<div id="app"></div>
+
+<script type="module">
+  import { HTMP } from 'https://unpkg.com/htm-projection/dist/esm/index.js';
+
+  const app = new HTMP('app', `
+    <div>
+      <h2>{{ title }}</h2>
+      <input @input="changeTitle(e)" placeholder="Type title..." />
+    </div>
+  `);
+
+  app.setProxy({ title: 'Hello HTMP' });
+  app.setProgram({
+    changeTitle: (e) => {
+      app.proxy.title = e.target.value;
+    }
+  });
+
+  app.mount();
+
+  document.getElementById('unmount-app').addEventListener('click', () => {
+    app.unmount();
+  });
+
+  document.getElementById('remount-app').addEventListener('click', () => {
+    app.remount();
+  });
+</script>
+```
+
+This is useful for modal-style UI, hidden panels, or temporary sections where you want to keep the current state while temporarily removing and restoring the view.
+
 ### 2. HTMP Multi-Step Form Example
 
 Live demo: <https://polaris-runtime.my.id/htmp-multi-step-form>
@@ -216,7 +264,26 @@ A few things it highlights:
 </div>
 ```
 
-### 3. HTMP Note APP
+### 3. HTMP SPA Ticket Demo
+
+Live demo: <https://polaris-runtime.my.id/htmp-spa-ticket>
+
+This example lives in `examples/spa-ticket/index.html` and demonstrates a simple SPA flow using the browser History API. It includes a ticket list and route-based detail view for each ticket, with mock data and a fallback message when a requested ticket does not exist.
+
+A few things it highlights:
+
+- `history.pushState()` keeps the page feeling like a real SPA without a framework router.
+- route handling can switch between list and detail views without reloading the page.
+- `unmount()`/`remount()` remain useful for temporary views and modal-like UI patterns.
+- the example is ideal for static hosting, local server usage, or a simple client-side dashboard prototype.
+
+```html
+<a href="/ticket/1" @click="openTicket(ticket, e)">Ticket #1</a>
+```
+
+> For production-style SPA routing, it is best served through a local HTTP server or hosting environment that supports URL rewriting.
+
+### 4. HTMP Note APP
 
 Live demo: <https://polaris-runtime.my.id/htmp-note>
 
