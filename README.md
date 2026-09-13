@@ -132,7 +132,7 @@ This example demonstrates **initialization with an empty array `[]`**, **reactiv
                 <ul>
                     <li :for="todo in todos">
                         <span :class="todo.done ? 'done' : ''">{{ todo.text }}</span>
-                        <button @click="finishTodo(todo)">Finish</button>
+                        <button @click="finishTodo(todo)">{{todo.done? 'Undo' : 'Finish'}}</button>
                         <button @click="deleteTodo(todo)">Delete</button>
                     </li>
                 </ul>                
