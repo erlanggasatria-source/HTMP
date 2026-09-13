@@ -40,7 +40,7 @@ import HTMP from 'htm-projection';
 ### Via CDN (Browser):
 
 ```js
-<script src="https://unpkg.com/htm-projection/dist/htmp.umd.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/npm/htm-projection@latest/+esm"></script>
 ```
 
 ## Quick Start
@@ -439,7 +439,7 @@ When embedding HTMP as a widget in a page where other scripts run, provide a ref
 </button>
 
 <script type="module">
-  import { HTMP } from 'https://cdn.jsdelivr.net/npm/htm-projection/dist/esm/index.js';
+  import { HTMP } from 'https://cdn.jsdelivr.net/npm/htm-projection@latest/+esm';
 
   const app = new HTMP('todo-widget', pattern);
   app.setProxy({ todos: [] });
