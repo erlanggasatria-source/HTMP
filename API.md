@@ -12,6 +12,7 @@ HTMP is a lightweight HTML projection library for building reactive UI from temp
 - [Template Syntax](#template-syntax)
 - [Lifecycle Hooks](#lifecycle-hooks)
 - [Execution Controls](#execution-controls)
+- [DOM Manipulation & Recovery](#dom-manipulation--recovery)
 
 ## Overview
 
@@ -358,4 +359,137 @@ app.destroy();
 - List items are reconciled by DOM identity and array order.
 - Use typed generics for stronger editor support and safer state handling.
 
- 
+---
+---
+
+# DOM Manipulation & Recovery
+
+## Overview
+
+HTMP manages its DOM **surgically** via a Registry Map. Each binding (`{{ }}`, `:for`, `:class`, `@event`) is registered with a **path** — an array of child indices from the root element to the target node.
+
+```text
+Registry Map
+├── "title" → { type: 'text', path: [5, 0, 0], expr: 'title' }
+├── "todos" → { type: 'list', path: [7, 0], listKey: 'todos' }
+└── "count" → { type: 'text', path: [3, 0], expr: 'count' }
+```
+
+When state changes, HTMP updates only the nodes at those registered paths. This is why HTMP is fast — **no diffing, no re-render, just direct updates**.
+
+---
+
+## The Trade-off
+
+Path-based tracking assumes the DOM structure **stays stable**. If an external script inserts, removes, or moves nodes inside the HTMP root, the paths shift — and bindings can no longer find their targets.
+
+| What you'll see | What's actually happening |
+| :--- | :--- |
+| Buttons stop responding | Event bindings reference nodes that no longer exist |
+| `@input` fails silently | Text bindings lost their target |
+| `unmount()` doesn't work | Root can't be located |
+| `{{ }}` stops updating | Text bindings can't find their node |
+
+**The state itself is never affected.** Only the DOM projection is broken.
+
+---
+
+## The Solution: `remount()`
+
+```javascript
+app.remount();
+```
+
+`remount()` performs a full restore:
+
+- Removes the current (corrupted) DOM from the root.
+- Re-attaches the original template from when the projection was created.
+- Re-applies all bindings using the current state.
+- Re-attaches all event listeners.
+
+**Result:** The projection is back to its correct state — with no data lost.
+
+### Why This Is a Feature, Not a Bug
+
+Most frameworks prevent external DOM manipulation by design — but when that manipulation does happen (browser extensions, legacy scripts, user tampering), they have no clean recovery path.
+
+| Framework | Recovery from external DOM corruption |
+| :--- | :--- |
+| React | VDOM diff fails → crash or re-mount (state lost) |
+| Vue | Detection breaks → manual re-render required |
+| Angular | Zone.js detection corrupted → full reload often needed |
+| HTMP | Projection stops, state stays intact → `remount()` restores everything |
+
+HTMP treats the DOM as a projection, not the source of truth.
+
+> **Corrupt the projection — the source stays clean.**
+
+---
+
+## Recovery Patterns
+
+### Pattern 1 — Widget with Manual Refresh
+
+When embedding HTMP as a widget in a page where other scripts run, provide a refresh button as a fallback:
+
+```html
+<div id="todo-widget"></div>
+<button id="refresh-widget" style="display: none;" onclick="remountWidget()">
+  ⟳ Refresh Widget
+</button>
+
+<script type="module">
+  import { HTMP } from 'https://cdn.jsdelivr.net/npm/htm-projection/dist/esm/index.js';
+
+  const app = new HTMP('todo-widget', pattern);
+  app.setProxy({ todos: [] });
+  app.setProgram({ /* ... */ });
+  app.mount();
+
+  window.remountWidget = () => {
+    app.remount();
+    document.getElementById('refresh-widget').style.display = 'none';
+  };
+</script>
+```
+
+> Tip: Show the refresh button only when needed — for example, after a page-level script runs that might have affected the widget.
+
+### Pattern 2 — Automatic Recovery
+
+If your application runs scripts that manipulate DOM automatically (syntax highlighter, formatter, third-party widget), call `remount()` after those scripts complete:
+
+```javascript
+// After external DOM manipulation completes
+runExternalScript();
+
+// Restore HTMP projection
+app.remount();
+```
+
+Or listen to a custom event:
+
+```javascript
+window.addEventListener('external-update-complete', () => {
+  app.remount();
+});
+```
+
+> Tip: If you have multiple HTMP instances, keep references and remount only the affected one — not all of them.
+
+### Rule of Thumb
+
+| Situation | Action |
+| :--- | :--- |
+| You want to change the UI | Mutate `app.proxy` — never touch the DOM |
+| External script may modify the DOM | Run `app.remount()` after it completes |
+| Widget embedded in a legacy page | Provide a refresh button as a fallback |
+| Multiple HTMP instances | Keep references, remount only what's affected |
+
+---
+
+## In Legacy Environments
+
+In PHP, WordPress, or Blade pages — you can't always control what other scripts do. They may add classes, wrap elements, or insert nodes.
+
+HTMP doesn't fight them. It simply restores itself when asked.

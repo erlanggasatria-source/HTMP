@@ -107,12 +107,14 @@ This example demonstrates **initialization with an empty array `[]`**, **reactiv
     </style>
 </head>
 <body>
+    <button id="unmount-app" type="button" onclick="app.unmount()">Unmount App</button>
+    <button id="remount-app" type="button" onclick="app.remount()">Remount App</button>
     <div id="app"></div>
 
     <script type="module">
-        import { HTMP } from 'https://unpkg.com/htm-projection/dist/esm/index.js';
-        
-        const template = `
+        import { HTMP } from 'https://unpkg.com/htm-projection@latest/dist/esm/index.js';
+                
+        const pattern = /*html*/`
             <div>
                 <h1>{{ title }}</h1>
                 <input type="text" @input="changeTitle(e)" placeholder="Type title..." />
@@ -124,7 +126,7 @@ This example demonstrates **initialization with an empty array `[]`**, **reactiv
 
                 <!-- If array is empty, this evaluates to a message. No v-if needed! -->
                 <p><i>{{ todos.length === 0 ? 'No todos yet. Add one below!' : '' }}</i></p>
-                <input type="text" id="todo-input" placeholder="New task..." />
+                <input type="text" id="todo-input" @input="changeInput(e)" :value="inputTodo" placeholder="New task..." />
                 <button @click="addTodo()">Add Todo</button>
                 
                 <ul>
@@ -138,12 +140,13 @@ This example demonstrates **initialization with an empty array `[]`**, **reactiv
         `;
 
         // 1. Initialize
-        const app = new HTMP('app', template);
+        const app = new HTMP('app', pattern);
 
         // 2. Set Initial State
         app.setProxy({
-            title: "",
+            title: "",            
             count: 0,
+            inputTodo: '',
             todos: [] // Empty array is perfectly safe
         });
 
@@ -151,12 +154,13 @@ This example demonstrates **initialization with an empty array `[]`**, **reactiv
         app.setProgram({
             changeTitle: (e) => { app.proxy.title = e.target.value; },
             increment: () => { app.proxy.count++; },
+            changeInput: (e) => { app.proxy.inputTodo = e.target.value; },
             
             addTodo: () => {
-                const input = document.getElementById('todo-input');
-                if (!input.value.trim()) return;
-                app.proxy.todos = [...app.proxy.todos, { id: Date.now(), text: input.value, done: false }];
-                input.value = '';
+                console.log(app.proxy.inputTodo);
+                if (!app.proxy.inputTodo.trim()) return;
+                app.proxy.todos = [...app.proxy.todos, { id: Date.now(), text: app.proxy.inputTodo, done: false }];
+                app.proxy.inputTodo = '';
             },
             
             finishTodo: (todo) => {
@@ -171,10 +175,29 @@ This example demonstrates **initialization with an empty array `[]`**, **reactiv
 
         // 4. Mount to DOM
         app.mount();
+        
+        window.app = app; // export to window now button access app.unmout() and app.remount()
     </script>
 </body>
 </html>
 ```
+
+> 💡 Try it: Copy this example, save it as `test.html`, and open it directly in your browser. The reactivity works instantly without a virtual server or build environment — just plain HTML and the browser runtime.
+
+---
+
+### 💡 IDE Support (VS Code Tips)
+
+By default, writing HTML inside JavaScript template literals (backticks) lacks syntax highlighting and auto-completion. To get a premium Developer Experience (DX) while writing HTMP patterns in VS Code:
+
+    Install the es6-string-html extension.
+    Add /* html */ right before your template string.
+
+This unlocks full HTML syntax highlighting, tag matching, and auto-completion directly inside your HTMP pattern:
+
+const pattern = /* html */ `  <div class="app-container">    <h1>{{ title }}</h1>    <button @click="increment()">Increment</button>    <ul>      <li :for="todo in todos">{{ todo.text }}</li>    </ul>  </div>`;
+
+Now your IDE knows exactly how to validate and colorize your HTMP templates!
 
 ---
 ## Example
@@ -328,7 +351,20 @@ function setLoading(isLoading) {
 
 For a complete list of methods, lifecycle hooks, and template syntax, please read the full [API](https://github.com/erlanggasatria-source/HTMP/blob/main/API.md) documentation.
 
+### ⚠️ DOM Manipulation Note
+
+HTMP manages its DOM surgically via a **Registry Map** with path-based tracking.
+Do not mutate the DOM inside an HTMP root with external scripts (jQuery, etc.).
+If you need to update the UI, mutate the proxy state instead.
+
+If the DOM gets corrupted, `remount()` restores it from the original template and current state — **without losing data**.
+
+> **State is truth. DOM is projection.** Corrupt the projection — the source stays clean.
+>
+> → [Full guide: DOM Manipulation & Recovery](./API.md#dom-manipulation--recovery)
+
 ---
+
 
 ### Possibilities
 
