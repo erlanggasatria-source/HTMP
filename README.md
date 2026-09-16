@@ -45,7 +45,7 @@ Pattern → Parser → Proxy → Program → Precision Projection
 
 ## ✨ Core Advantages
 
-- **Ultra-lightweight (~2.9 KB min zip):** zero dependencies. Drop it into any project via npm or a single `<script>` tag from a CDN.
+- **Ultra-lightweight (~3.3 KB min zip):** zero dependencies. Drop it into any project via npm or a single `<script>` tag from a CDN.
 - **Friendly guest (embeddable):** non-invasive. It does not demand ownership of the entire `<body>`. You can embed HTMP in a specific `div` inside WordPress, jQuery apps, or even inside React/Vue components without causing DOM mutation conflicts.
 - **SPA ready:** equipped with complete lifecycle controls (`mount`, `unmount`, `remount`, `destroy`). Pair it with the native browser Navigation API to build a full single-page application without a heavy router library.
 - **Slot-based rendering:** say goodbye to `if` conditionals used to prevent rendering errors. If data is `null` or `[]`, the slot simply remains empty. When data arrives, the Proxy fills the exact slot instantly. The template remains a pure, declarative projection of your state.
