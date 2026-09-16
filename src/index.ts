@@ -20,15 +20,22 @@ export type {
 
 type EventHandlerElement = HTMLElement & Record<string, ((event: Event) => void) | null>;
 
+// FIX: Gunakan intersection type (&) bukan interface extends
+type HtmpBinding = RegistryBinding & { _htmpId?: number };
+
 export class HTMP<T extends Record<string, any> = Record<string, any>> {
   private rootId: string;
   private parser: DOMParser;
   public proxy: T;
   private dom: Element | null;
   public programs: Record<string, ProgramCallback>;
-  private registry: Record<string, RegistryBinding[]>;
+  private registry: Record<string, HtmpBinding[]>;
   private pendingDiff: Set<string>;
   public isMounted: boolean;
+  
+  // Counter untuk generate unique ID marker
+  private _htmpIdCounter: number = 0;
+
   private hooks: {
     mount: LifecycleHook[];
     unmount: LifecycleHook[];
@@ -41,6 +48,11 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
     this.parser = new DOMParser();
     this.dom = this.parser.parseFromString(templateString, 'text/html').body.firstElementChild;
     
+    // Tandai root sebagai titik berhenti iterator
+    if (this.dom) {
+      (this.dom as any)._htmp = "root";
+    }
+
     this.programs = {};
     this.registry = {};
     this.pendingDiff = new Set<string>();
@@ -99,7 +111,6 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
     return new Proxy(obj, {
       get(target, key, receiver) {
         const val = Reflect.get(target, key, receiver);
-        // Jika valuenya adalah object/array, bungkus dengan Proxy juga!
         if (typeof val === 'object' && val !== null) {
           return self.makeDeepReactive(val, proxyKey);
         }
@@ -129,6 +140,10 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
         
         if (rootKeys.size === 0) rootKeys.add(expr);
         
+        // Generate ID sekali per Text Node
+        const htmpId = this._htmpIdCounter++;
+        (node as any)._htmp = htmpId;
+
         rootKeys.forEach(key => {
           if (!this.registry[key]) this.registry[key] = [];
           this.registry[key].push({
@@ -136,7 +151,8 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
             path: [...currentPath],
             rawText,
             rawMatch,
-            expr
+            expr,
+            _htmpId: htmpId // Simpan ID ke registry
           });
         });
       }
@@ -144,6 +160,11 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
     
     if (node.nodeType === Node.ELEMENT_NODE) {
       let isListTemplate = false;
+      
+      // Generate ID sekali per Element Node
+      const htmpId = this._htmpIdCounter++;
+      (node as Element as any)._htmp = htmpId;
+
       for (const attr of Array.from((node as Element).attributes)) {
         if (attr.name.startsWith('@')) {
           const eventName = attr.name.slice(1);
@@ -192,7 +213,8 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
               type: 'attribute',
               path: [...currentPath],
               attrName: realAttrName,
-              attrExpr: expr
+              attrExpr: expr,
+              _htmpId: htmpId // Simpan ID ke registry
             });
           });
           (node as Element).removeAttribute(attr.name);
@@ -213,14 +235,12 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
               originalHTML: originalHTML
             };
             
-            // === SOLUSI: Pindai isi template :for untuk mencari root proxy lain ===
             const innerHTML = (node as Element).innerHTML;
             const regexText = /\{\{\s*(.*?)\s*\}\}/g;
             const regexAttr = /:\w+="([^"]+)"/g;
             const allExprs: string[] = [];
             let m;
             
-            // Kumpulkan semua ekspresi dari {{ }} dan :attr di dalam loop
             while ((m = regexText.exec(innerHTML)) !== null) allExprs.push(m[1]);
             while ((m = regexAttr.exec(innerHTML)) !== null) allExprs.push(m[1]);
             
@@ -230,22 +250,17 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
                const vars = cleanExpr.match(/[a-zA-Z_][a-zA-Z0-9_.]*/g) || [];
                vars.forEach(v => {
                  const rootKey = v.split('.')[0];
-                 // Daftarkan semua root key, KECUALI variabel item loop itu sendiri (misal 'note')
                  if (rootKey !== itemName) {
                    rootKeysInLoop.add(rootKey);
                  }
                });
             });
-            // ==================================================================
 
-            // 1. Daftarkan key utama array (misal: 'notes') untuk memicu renderList
             if (!this.registry[listKey]) this.registry[listKey] = [];
             this.registry[listKey].push(listBinding);
             
-            // 2. Daftarkan root proxy lain (misal: 'editingId', 'editForm') agar juga memicu renderList!
             rootKeysInLoop.forEach(key => {
               if (!this.registry[key]) this.registry[key] = [];
-              // Push listBinding yang SAMA agar terhubung ke renderList yang sama
               this.registry[key].push(listBinding);
             });
 
@@ -263,109 +278,185 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
     }
   }
 
+    // === METODE BARU: SELF-HEALING RESOLVER ===
+  private resolveNode(key: string, binding: HtmpBinding): Node | null {
+    if (!this.dom) return null;
+    
+    // 1. Fast Path: Cek berdasarkan path di registry
+    let targetNode: Node | null = this.dom;
+    
+    // Pastikan binding memiliki path (TextBinding & AttributeBinding punya path, ListBinding tidak)
+    if ('path' in binding && binding.path) {
+      for (const index of binding.path) {
+        if (targetNode && targetNode.childNodes[index]) {
+          targetNode = targetNode.childNodes[index];
+        } else {
+          targetNode = null;
+          break;
+        }
+      }
+
+      // 2. Validasi: Apakah node di path ini benar node reaktif kita?
+      if (targetNode && (targetNode as any)._htmp === binding._htmpId) {
+        return targetNode; // ✅ MATCH: DOM sehat
+      }
+    }
+
+    // 3. Fallback Path: Mismatch! DOM bergeser/rusak.
+    if (binding._htmpId !== undefined) {
+      const foundNode = this.findNodeByHtmpId(this.dom, binding._htmpId);
+
+      if (foundNode) {
+        // 🔄 SELF-HEALING: Hitung path baru dan update registry
+        const newPath = this.getRelativeDOMPath(foundNode, this.dom);
+        // Hanya update path jika binding memang seharusnya punya path
+        if ('path' in binding) {
+          binding.path = newPath;
+        }
+        console.info(`[HTMP] Self-healing: Path corrected for ID ${binding._htmpId}`);
+        return foundNode;
+      }
+    }
+
+    // ⚠️ DELETION: Node sama sekali tidak ketemu di dalam this.dom
+    console.warn(`[HTMP Warn] Reactive node ID ${binding._htmpId} not found. Removed from registry.`);
+    this.removeBinding(key, binding);
+    return null;
+  }
+
+  private findNodeByHtmpId(root: Node, id: number): Node | null {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_ALL, {
+      acceptNode: function(node) {
+        if ((node as any)._htmp === id) {
+          return NodeFilter.FILTER_ACCEPT;
+        }
+        return NodeFilter.FILTER_SKIP;
+      }
+    });
+    return walker.nextNode();
+  }
+
+  private getRelativeDOMPath(target: Node, root: Node): number[] {
+    const path: number[] = [];
+    let current: Node | null = target;
+    
+    // Traverse dari target naik ke atas sampai ketemu root
+    while (current !== null && current !== root) {
+      const parent: Node | null = current.parentNode;
+      if (parent === null) break;
+      
+      const index: number = Array.prototype.indexOf.call(parent.childNodes, current);
+      path.unshift(index);
+      current = parent;
+    }
+    return path;
+  }
+
+  private removeBinding(key: string, bindingToRemove: HtmpBinding) {
+    if (this.registry[key]) {
+      this.registry[key] = this.registry[key].filter(b => b !== bindingToRemove);
+      if (this.registry[key].length === 0) {
+        delete this.registry[key];
+      }
+    }
+  }
+  // ==========================================
+
   renderDiff() {
     if (this.pendingDiff.size === 0 || !this.dom) return;
-    const rootEl = this.dom;
     
     this.pendingDiff.forEach((key: string) => {
       if (this.registry[key]) {
-        this.registry[key].forEach((binding: RegistryBinding) => {
+        // Clone array agar aman jika ada penghapusan binding saat iterasi
+        [...this.registry[key]].forEach((binding: HtmpBinding) => {
           if (binding.type === 'list') this.renderList(binding);
-          else if (binding.type === 'text') this.renderText(binding, rootEl);
-          else if (binding.type === 'attribute') this.renderAttribute(binding, rootEl);
+          else if (binding.type === 'text') this.renderText(key, binding);
+          else if (binding.type === 'attribute') this.renderAttribute(key, binding);
         });
       }
     });
     this.pendingDiff.clear();
   }
 
-  renderText(binding: Extract<RegistryBinding, { type: 'text' }>, rootEl: Element): void {
-    let targetNode: Node | null = rootEl;
-    binding.path.forEach((index: number) => {
-      if (targetNode) targetNode = targetNode.childNodes[index];
-    });
+  // Parameter diubah: key ditambahkan untuk keperluan cleanup registry
+  renderText(key: string, binding: Extract<HtmpBinding, { type: 'text' }>): void {
+    const targetNode = this.resolveNode(key, binding);
+    if (!targetNode || targetNode.nodeType !== Node.TEXT_NODE) return;
     
-    if (targetNode && targetNode.nodeType === Node.TEXT_NODE) {
-      const textNode = targetNode as Text;
-      const rawText = binding.rawText;
-      
-      // Ganti SEMUA {{ }} yang ada di text node ini sekaligus
-      const newText = rawText.replace(/\{\{\s*(.*?)\s*\}\}/g, (_match: string, expr: string) => {
-        let val: unknown;
-        try {
-          // Evaluasi ekspresi menggunakan root proxy
-          const func = new Function('proxy', `return proxy.${expr};`);
-          val = func(this.proxy);
-        } catch(e) { 
-          val = ''; 
-        }
-        
-        // Jika undefined/null, kembalikan string kosong agar tidak tampil "undefined"
-        return val !== undefined && val !== null ? String(val) : '';
-      });
-      
-      // Hanya update DOM jika teksnya benar-benar berubah (mencegah cursor reset)
-      if (textNode.nodeValue !== newText) {
-        textNode.nodeValue = newText;
-      }
-    }
-  }
-
-  renderAttribute(binding: Extract<RegistryBinding, { type: 'attribute' }>, rootEl: Element): void {
-    let targetNode: Node | null = rootEl;
-    binding.path.forEach((index: number) => {
-      if (targetNode) targetNode = targetNode.childNodes[index];
-    });
+    const textNode = targetNode as Text;
+    const rawText = binding.rawText;
     
-    if (targetNode && targetNode.nodeType === Node.ELEMENT_NODE) {
-      const el = targetNode as Element;
+    const newText = rawText.replace(/\{\{\s*(.*?)\s*\}\}/g, (_match: string, expr: string) => {
       let val: unknown;
       try {
-        const func = new Function('proxy', `return proxy.${binding.attrExpr};`);
+        const func = new Function('proxy', `return proxy.${expr};`);
         val = func(this.proxy);
-      } catch(e) { val = undefined; }
-      
-      const realAttrName = binding.attrName;
-      const strVal = String(val);
-
-      // KHUSUS FORM ELEMENTS
-      if (realAttrName === 'value' && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT')) {
-        if ((el as HTMLInputElement).value !== strVal) {
-          (el as HTMLInputElement).value = strVal;
-        }
-        if (el.tagName === 'SELECT') {
-          Array.from(el.querySelectorAll('option')).forEach((opt: Element) => {
-            const htmlOpt = opt as HTMLOptionElement;
-            if (htmlOpt.value === strVal) {
-              if (!htmlOpt.selected) htmlOpt.selected = true;
-            } else {
-              if (htmlOpt.selected) htmlOpt.selected = false;
-            }
-          });
-        }
-      } 
-      else if (val === false || val === null || val === undefined) {
-        el.removeAttribute(realAttrName);
-      } else if (val === true) {
-        el.setAttribute(realAttrName, '');
-      } else {
-        el.setAttribute(realAttrName, strVal);
+      } catch(e) { 
+        val = ''; 
       }
+      return val !== undefined && val !== null ? String(val) : '';
+    });
+    
+    if (textNode.nodeValue !== newText) {
+      textNode.nodeValue = newText;
     }
   }
 
-  renderList(binding: Extract<RegistryBinding, { type: 'list' }>): void {
+  // Parameter diubah: key ditambahkan untuk keperluan cleanup registry
+  renderAttribute(key: string, binding: Extract<HtmpBinding, { type: 'attribute' }>): void {
+    const targetNode = this.resolveNode(key, binding);
+    if (!targetNode || targetNode.nodeType !== Node.ELEMENT_NODE) return;
+    
+    const el = targetNode as Element;
+    let val: unknown;
+    try {
+      const func = new Function('proxy', `return proxy.${binding.attrExpr};`);
+      val = func(this.proxy);
+    } catch(e) { val = undefined; }
+    
+    const realAttrName = binding.attrName;
+    const strVal = String(val);
+
+    if (realAttrName === 'value' && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT')) {
+      if ((el as HTMLInputElement).value !== strVal) {
+        (el as HTMLInputElement).value = strVal;
+      }
+      if (el.tagName === 'SELECT') {
+        Array.from(el.querySelectorAll('option')).forEach((opt: Element) => {
+          const htmlOpt = opt as HTMLOptionElement;
+          if (htmlOpt.value === strVal) {
+            if (!htmlOpt.selected) htmlOpt.selected = true;
+          } else {
+            if (htmlOpt.selected) htmlOpt.selected = false;
+          }
+        });
+      }
+    } 
+    else if (val === false || val === null || val === undefined) {
+      el.removeAttribute(realAttrName);
+    } else if (val === true) {
+      el.setAttribute(realAttrName, '');
+    } else {
+      el.setAttribute(realAttrName, strVal);
+    }
+  }
+
+    renderList(binding: Extract<HtmpBinding, { type: 'list' }>): void {
     const items = Array.isArray(this.proxy[binding.listKey]) ? this.proxy[binding.listKey] as unknown[] : [];
-    const { templateNode, parentEl, itemName, originalHTML } = binding; // Ambil originalHTML
+    const { templateNode, parentEl, itemName, originalHTML } = binding; 
     if (!parentEl) return;
     
     const actualParent = parentEl;
     const newKeys = new Set<string>();
     
-    // === SOLUSI: Parse ulang HTML asli agar struktur dan atribut 100% utuh! ===
-    const wrapper = document.createElement('div');
-    wrapper.innerHTML = originalHTML;
-    const freshTemplate = wrapper.firstElementChild as Element;
+    // === SOLUSI: Gunakan <template> agar <tr> tidak dibuang oleh browser ===
+    const templateWrapper = document.createElement('template');
+    templateWrapper.innerHTML = originalHTML;
+    const freshTemplate = templateWrapper.content.firstElementChild as Element;
+    
+    // Fallback jika ternyata bukan elemen tabel (biasanya div)
+    const finalTemplate = freshTemplate || templateNode.cloneNode(true) as Element;
+    // =====================================================================
 
     const proxyKeys = Object.keys(this.proxy);
     const evalInLoop = (expr: string, item: unknown): unknown => {
@@ -400,12 +491,12 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
       let childNode = actualParent.querySelector(`#${domId}`) as HTMLElement | null;
       
       if (!childNode) {
-        childNode = freshTemplate.cloneNode(true) as HTMLElement;
+        childNode = finalTemplate.cloneNode(true) as HTMLElement;
         childNode.id = domId;
         actualParent.appendChild(childNode);
-        this.processListItem(childNode, freshTemplate, item, itemName, evalInLoop, true);
+        this.processListItem(childNode, finalTemplate, item, itemName, evalInLoop, true);
       } else {
-        this.processListItem(childNode, freshTemplate, item, itemName, evalInLoop, false);
+        this.processListItem(childNode, finalTemplate, item, itemName, evalInLoop, false);
       }
     });
 
@@ -417,7 +508,6 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
     }
   }
 
-  // HELPER BARU: Untuk update in-place tanpa merusak fokus input
   processListItem(
     clonedNode: Node, 
     templateNode: Node, 
@@ -481,14 +571,12 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
           const expr = attr.value;
           const val = evalInLoop(expr, item);
 
-          // KHUSUS FORM ELEMENTS: Set properti .value, BUKAN atribut
           if (realAttrName === 'value' && (cEl.tagName === 'INPUT' || cEl.tagName === 'TEXTAREA' || cEl.tagName === 'SELECT')) {
             const strVal = String(val);
             if ((cEl as HTMLInputElement).value !== strVal) {
               (cEl as HTMLInputElement).value = strVal;
             }
             
-            // KHUSUS SELECT: Setelah set value, pastikan option yang sesuai ter-selected
             if (cEl.tagName === 'SELECT') {
               Array.from(cEl.querySelectorAll('option')).forEach((opt: Element) => {
                 const htmlOpt = opt as HTMLOptionElement;
@@ -500,13 +588,11 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
               });
             }
           } 
-          // BOOLEAN ATTRIBUTES (seperti disabled, checked)
           else if (val === false || val === null || val === undefined) {
             cEl.removeAttribute(realAttrName);
           } else if (val === true) {
             cEl.setAttribute(realAttrName, '');
           } 
-          // ATRIBUT BIASA (class, href, dll)
           else {
             cEl.setAttribute(realAttrName, String(val));
           }        
@@ -514,7 +600,6 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
         }
       }
 
-      // Rekursi ke anak-anak elemen saat ini
       const cChildren = Array.from(cEl.childNodes);
       const tChildren = Array.from(tEl.childNodes);
       for (let i = 0; i < cChildren.length; i++) {
@@ -532,7 +617,7 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
       target.innerHTML = '';
       target.appendChild(this.dom);
       
-      Object.values(this.registry).flat().forEach((b: RegistryBinding) => {
+      Object.values(this.registry).flat().forEach((b: HtmpBinding) => {
         if (b.type === 'list' && b.templateNode.parentNode) {
           b.templateNode.parentNode.removeChild(b.templateNode);
         }
@@ -540,7 +625,6 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
 
       this.isMounted = true;
       
-      // === DX WARNING: Cek variabel reaktif yang belum dideklarasikan ===
       const registeredKeys = Object.keys(this.registry);
       const proxyKeys = Object.keys(this.proxy);
       
@@ -549,7 +633,6 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
           console.warn(`[HTMP Warn] Variabel "${key}" digunakan di template, tetapi belum didaftarkan di proxy. UI mungkin tidak akan reaktif terhadap perubahannya.`);
         }
       });
-      // ================================================================
 
       this.renderDiff();
       this.hooks.mount.forEach(fn => fn());

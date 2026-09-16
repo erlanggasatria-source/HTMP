@@ -256,6 +256,71 @@ DOM elements are patched in-place, meaning focus and scroll states are preserved
 </ul>
 ```
 
+The same loop syntax works for table rows. HTMP parses the pattern through a
+native `<template>` element so browser table parsing does not strip `<tr>`
+elements before HTMP can compile them.
+
+```html
+<table>
+  <tbody>
+    <tr :for="user in users">
+      <td>{{ user.name }}</td>
+      <td>{{ user.email }}</td>
+    </tr>
+  </tbody>
+</table>
+```
+
+This is used by the AdminLTE example in
+`examples/admin-lte/users.html`, which adds search, role filtering, status
+badges, action buttons, and reactive pagination.
+
+The same pattern can render a collection of cards. Keep the data model free
+from presentation classes and expose small helpers through the proxy when the
+template needs UI-specific classes.
+
+```html
+<div class="row">
+  <div class="col-md-4" :for="card in cards">
+    <div class="card" :class="cardClass(card.status)">
+      <div class="card-header">
+        <h3 class="card-title">{{ card.title }}</h3>
+      </div>
+      <div class="card-body">
+        <p>{{ card.description }}</p>
+        <span :class="'badge ' + statusClass(card.status)">
+          {{ card.status }}
+        </span>
+      </div>
+      <div class="card-footer">
+        <button class="btn btn-sm btn-primary" @click="openCard(card)">
+          Open
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+```
+
+```js
+const app = new HTMP('card-list', cardPattern);
+
+app.setProxy({
+  cards: [
+    { id: 1, title: 'Users', description: 'Manage user accounts', status: 'Ready' },
+    { id: 2, title: 'Reports', description: 'Review monthly reports', status: 'Pending' }
+  ],
+  cardClass: (status) => status === 'Pending' ? 'border-warning' : 'border-success',
+  statusClass: (status) => status === 'Pending' ? 'text-bg-warning' : 'text-bg-success'
+});
+
+app.setProgram({
+  openCard: (card) => console.log('Open card:', card.id)
+});
+
+app.mount();
+```
+
 ### Conditional Rendering (No `:if` needed)
 
 HTMP intentionally omits an `:if` directive to preserve DOM stability. Instead of destroying and recreating elements, use native JavaScript ternary operators inside `{{ }}` to render content dynamically.
@@ -360,13 +425,14 @@ app.destroy();
 - Use typed generics for stronger editor support and safer state handling.
 
 ---
----
 
-# DOM Manipulation & Recovery
+# Self-Healing
 
 ## Overview
 
-HTMP manages its DOM **surgically** via a Registry Map. Each binding (`{{ }}`, `:for`, `:class`, `@event`) is registered with a **path** — an array of child indices from the root element to the target node.
+HTMP manages its DOM **surgically** via a Registry Map. Each binding
+(`{{ }}`, `:for`, `:class`, `@event`) is registered with a **path** — an array
+of child indices from the root element to the target node.
 
 ```text
 Registry Map
@@ -375,121 +441,42 @@ Registry Map
 └── "count" → { type: 'text', path: [3, 0], expr: 'count' }
 ```
 
-When state changes, HTMP updates only the nodes at those registered paths. This is why HTMP is fast — **no diffing, no re-render, just direct updates**.
+
+When state changes, HTMP updates only the nodes at those registered paths.
+This is why HTMP is fast — **no diffing, no re-render, just direct updates**.
 
 ---
 
-## The Trade-off
+## Self-Healing (New in v1.0.2)
 
-Path-based tracking assumes the DOM structure **stays stable**. If an external script inserts, removes, or moves nodes inside the HTMP root, the paths shift — and bindings can no longer find their targets.
+When external scripts manipulate the DOM inside an HTMP root, the
+registered paths may become stale. **HTMP now heals itself automatically.**
 
-| What you'll see | What's actually happening |
-| :--- | :--- |
-| Buttons stop responding | Event bindings reference nodes that no longer exist |
-| `@input` fails silently | Text bindings lost their target |
-| `unmount()` doesn't work | Root can't be located |
-| `{{ }}` stops updating | Text bindings can't find their node |
+### How It Works
 
-**The state itself is never affected.** Only the DOM projection is broken.
+1. Every binding node is tagged with `_htmp` (its binding ID).
+2. If a path becomes stale, HTMP finds the node by ID.
+3. HTMP corrects the path and updates the binding.
+4. Future updates return to surgical mode.
 
----
-
-## The Solution: `remount()`
-
-```javascript
-app.remount();
+```text
+[HTMP] Self-healing: Path corrected for ID 5
+[HTMP] Self-healing: Path corrected for ID 11
+[HTMP] Self-healing: Path corrected for ID 10
 ```
 
-`remount()` performs a full restore:
 
-- Removes the current (corrupted) DOM from the root.
-- Re-attaches the original template from when the projection was created.
-- Re-applies all bindings using the current state.
-- Re-attaches all event listeners.
+### What This Means
 
-**Result:** The projection is back to its correct state — with no data lost.
+- **No manual `remount()`** in most cases.
+- **Safe in legacy environments** — jQuery, WordPress, browser extensions.
+- **State remains the source of truth.** DOM is disposable — and now,
+  self-repairing.
 
-### Why This Is a Feature, Not a Bug
+### When Self-Healing Runs
 
-Most frameworks prevent external DOM manipulation by design — but when that manipulation does happen (browser extensions, legacy scripts, user tampering), they have no clean recovery path.
+Self-healing only runs when a path fails. In normal operation:
 
-| Framework | Recovery from external DOM corruption |
-| :--- | :--- |
-| React | VDOM diff fails → crash or re-mount (state lost) |
-| Vue | Detection breaks → manual re-render required |
-| Angular | Zone.js detection corrupted → full reload often needed |
-| HTMP | Projection stops, state stays intact → `remount()` restores everything |
-
-HTMP treats the DOM as a projection, not the source of truth.
-
-> **Corrupt the projection — the source stays clean.**
-
----
-
-## Recovery Patterns
-
-### Pattern 1 — Widget with Manual Refresh
-
-When embedding HTMP as a widget in a page where other scripts run, provide a refresh button as a fallback:
-
-```html
-<div id="todo-widget"></div>
-<button id="refresh-widget" style="display: none;" onclick="remountWidget()">
-  ⟳ Refresh Widget
-</button>
-
-<script type="module">
-  import { HTMP } from 'https://cdn.jsdelivr.net/npm/htm-projection@latest/+esm';
-
-  const app = new HTMP('todo-widget', pattern);
-  app.setProxy({ todos: [] });
-  app.setProgram({ /* ... */ });
-  app.mount();
-
-  window.remountWidget = () => {
-    app.remount();
-    document.getElementById('refresh-widget').style.display = 'none';
-  };
-</script>
-```
-
-> Tip: Show the refresh button only when needed — for example, after a page-level script runs that might have affected the widget.
-
-### Pattern 2 — Automatic Recovery
-
-If your application runs scripts that manipulate DOM automatically (syntax highlighter, formatter, third-party widget), call `remount()` after those scripts complete:
-
-```javascript
-// After external DOM manipulation completes
-runExternalScript();
-
-// Restore HTMP projection
-app.remount();
-```
-
-Or listen to a custom event:
-
-```javascript
-window.addEventListener('external-update-complete', () => {
-  app.remount();
-});
-```
-
-> Tip: If you have multiple HTMP instances, keep references and remount only the affected one — not all of them.
-
-### Rule of Thumb
-
-| Situation | Action |
-| :--- | :--- |
-| You want to change the UI | Mutate `app.proxy` — never touch the DOM |
-| External script may modify the DOM | Run `app.remount()` after it completes |
-| Widget embedded in a legacy page | Provide a refresh button as a fallback |
-| Multiple HTMP instances | Keep references, remount only what's affected |
-
----
-
-## In Legacy Environments
-
-In PHP, WordPress, or Blade pages — you can't always control what other scripts do. They may add classes, wrap elements, or insert nodes.
-
-HTMP doesn't fight them. It simply restores itself when asked.
+- **No overhead** — paths are always valid.
+- **Surgical updates** — no DOM scanning.
+- **Full speed** — like v1.0.1.

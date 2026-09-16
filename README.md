@@ -52,16 +52,16 @@ Pattern → Parser → Proxy → Program → Precision Projection
 
 ---
 
-## 📦 Verified Bundle Size
+## 📦 Verified Bundle Size v1.02
 
 [![BundlePhobia](https://badgen.net/bundlephobia/minzip/htm-projection)](https://bundlephobia.com/package/htm-projection)
 
 | Metric | Value |
 | :--- | :--- |
-| Bundle Size (Minified) | **8.3 kB** |
-| **Minified + Gzipped** | **2.9 kB** |
-| Download (Slow 3G) | **57 ms** |
-| Download (Emerging 4G) | **3 ms** |
+| Bundle Size (Minified) | **9.4 kB** |
+| **Minified + Gzipped** | **3.3 kB** |
+| Download (Slow 3G) | **66 ms** |
+| Download (Emerging 4G) | **4 ms** |
 
 > Verified independently by [BundlePhobia](https://bundlephobia.com/package/htm-projection).
 
@@ -318,6 +318,46 @@ npm install
 npm run dev
 ```
 
+### 5. AdminLTE User Directory Example
+
+Source: [examples/admin-lte/users.html](examples/admin-lte/users.html)
+
+This example starts with an original AdminLTE 4 page and turns the User Directory card into one HTMP projection. The surrounding AdminLTE layout, modal markup, navigation, and Bootstrap behavior remain ordinary HTML.
+
+It demonstrates:
+
+- user rows rendered with `:for="user in pagedUsers"`;
+- reactive search and role filtering;
+- role and status badge classes resolved by proxy helpers;
+- page-size selection with `10`, `50`, and `100` options;
+- pagination derived from the filtered data;
+- edit and delete actions receiving the current user object;
+- a chained update flow without jQuery DOM manipulation.
+
+```text
+search / role filter
+        -> filteredUsers
+        -> pageCount and pages
+        -> pagedUsers
+        -> table rows and pagination
+```
+
+The complete card is mounted once:
+
+```js
+const userTable = new HTMP('users-card-content', userCardPattern);
+
+userTable.setProxy({
+  users,
+  filteredUsers: users,
+  pagedUsers: users.slice(0, 10),
+  page: 1,
+  pageSize: 10
+});
+
+userTable.mount();
+```
+
 ---
 
 ## 🤝 Total Control State Management (No Magic Global Stores)
@@ -351,17 +391,31 @@ function setLoading(isLoading) {
 
 For a complete list of methods, lifecycle hooks, and template syntax, please read the full [API](https://github.com/erlanggasatria-source/HTMP/blob/main/API.md) documentation.
 
-### ⚠️ DOM Manipulation Note
+## 🛡️ Self-Healing DOM v1.0.2+
 
-HTMP manages its DOM surgically via a **Registry Map** with path-based tracking.
-Do not mutate the DOM inside an HTMP root with external scripts (jQuery, etc.).
-If you need to update the UI, mutate the proxy state instead.
+HTMP manages its DOM surgically via a Registry Map — but if external scripts
+(jQuery, browser extensions, legacy code) manipulate the DOM inside an HTMP
+root, HTMP now **heals itself automatically**.
 
-If the DOM gets corrupted, `remount()` restores it from the original template and current state — **without losing data**.
+### How it works
 
-> **State is truth. DOM is projection.** Corrupt the projection — the source stays clean.
->
-> → [Full guide: DOM Manipulation & Recovery](./API.md#dom-manipulation--recovery)
+- Every binding node is tagged with `_htmp` (its binding ID).
+- If a path becomes stale, HTMP finds the node by ID and corrects the path.
+- After healing, updates return to surgical mode.
+
+### What this means
+
+- **No more manual `remount()`** in most cases.
+- **Safe in legacy environments** — jQuery, WordPress, browser extensions.
+- **State remains the source of truth.** DOM is disposable — and now,
+  self-repairing.
+
+[HTMP] Self-healing: Path corrected for ID 5
+text
+
+
+> HTMP works *with* the browser, not against it. Self-healing is just
+> another example of using what the platform already provides.
 
 ---
 

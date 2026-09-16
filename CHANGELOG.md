@@ -4,6 +4,69 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project adheres to Semantic Versioning.
 
+## [1.0.2] - 2026-09-16
+
+### ✨ Added
+
+- **`:for` now works on `<tr>` elements inside `<table>`.**
+  Browser's strict HTML parsing would strip `<tr>` when parsed outside
+  table context. HTMP now wraps HTML in a native `<template>` element
+  during compilation, which parses content as an HTML fragment without
+  context restrictions.
+
+  ```html
+  <table>
+    <tbody>
+      <tr :for="user in users">
+        <td>{{ user.name }}</td>
+        <td>{{ user.email }}</td>
+      </tr>
+    </tbody>
+  </table>
+  ```
+
+- Tested with `examples/admin-lte/users.html`: reactive table with search,
+  role filter, status badge, and action buttons.
+
+- **Auto self-healing registry paths.**
+  When external scripts manipulate the DOM inside an HTMP root, the
+  registry path (for example, `[5, 0, 0]`) may become stale. HTMP now
+  detects this and automatically corrects the path using node IDs
+  (`node._htmp`). After healing, updates return to surgical path-based mode.
+
+  Example diagnostic:
+
+  ```text
+  [HTMP] Self-healing: Path corrected for ID 5
+  ```
+
+  This removes the need for manual `remount()` in most recovery scenarios.
+
+### 🔄 Changed
+
+- Removed the DOM manipulation warning from the README. With self-healing
+  in place, HTMP can recover from many external DOM changes automatically.
+
+### ⚡ Performance
+
+- Bundle size increased by approximately 0.4 kB gzipped, from 2.9 kB to
+  3.3 kB, to support table parsing and DOM resilience.
+- Healing only runs when the stored path fails. After recovery, updates
+  return to the normal surgical path-based flow.
+
+### Why This Matters
+
+- Table support makes HTMP suitable for AdminLTE, SB Admin, and other
+  Bootstrap-based admin templates.
+- Self-healing makes HTMP more resilient in legacy environments such as
+  jQuery applications, WordPress, and browser extensions.
+- State remains the source of truth while the DOM stays disposable and
+  recoverable.
+
+    Self-healing — makes HTMP resilient in legacy environments
+    (jQuery, WordPress, browser extensions). State remains the source
+    of truth. DOM is disposable — and now, self-repairing.
+
 ## [1.0.1] - 2026-09-11
 
 ### ✨ Added

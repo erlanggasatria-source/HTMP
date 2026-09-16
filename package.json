@@ -1,7 +1,7 @@
 {
   "name": "htm-projection",
-  "version": "1.0.1",
-  "description": "Reactive HTML with 3 pillars: pattern parser, proxy, and programs. Browser-native API, lightweight reactive projection. Ready for widgets or SPA. A different approach from virtual DOM with fine-grained reactivity — slot-ready even with empty initial state. 2.9 KB gzip. No build step. Use directly via UNPKG.",
+  "version": "1.0.2",
+  "description": "Reactive HTML with 3 pillars: pattern parser, proxy, and programs. Browser-native API, lightweight reactive projection. Ready for widgets or SPA. A different approach from virtual DOM with fine-grained reactivity — slot-ready even with empty initial state.",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",
   "types": "types/index.d.ts",
@@ -33,6 +33,7 @@
     "projection",
     "typescript",
     "dom",
+    "no-vdom",
     "reactivity",
     "cdn"
   ],
