@@ -4,6 +4,76 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project adheres to Semantic Versioning.
 
+## [1.1.0] - 2026-09-20
+
+### ✨ Added
+
+- **Smart Nested `:for` (Unlimited Depth)**.
+  The engine now supports fully recursive nested loops. Build multi-level
+  menus, organizational charts (tree views), or threaded comments at any
+  depth. The engine automatically manages a Scope Chain, allowing child
+  loops to access variables from parent loops natively.
+
+  ```html
+  <li :for="person in struktur">
+    {{ person.nama }}
+    <ul>
+      <li :for="child in person.children">
+        {{ child.nama }}
+        <ul>
+          <li :for="sub in child.children">
+            {{ sub.nama }}
+          </li>
+        </ul>
+      </li>
+    </ul>
+  </li>
+  ```
+
+- **Smart Key (Dual Mode)**.
+  Automatic DOM key reconciliation. If an array item has an `id` property,
+  the engine uses it as the DOM key for maximum reconciliation performance.
+  If not, it intelligently falls back to the array index — without requiring
+  a manual `:key` declaration in HTML.
+
+- **Variable Shadowing Guard (DX Warning)**.
+  Adds a `console.warn` when a developer accidentally reuses the same
+  variable name in nested `:for` loops (e.g., `item in item.children`),
+  preventing potential scope bugs.
+
+### 🐛 Fixed
+
+- **Regex Variable Overlap**.
+  Fixed a bug where `evalInLoop` would incorrectly replace part of another
+  variable name (e.g., turning `username` into `proxy.itemname` just because
+  a `user` variable existed). Now uses a negative lookbehind regex
+  (`(?<![\w.])`) for precise matching.
+
+- **Event Listener Leak in `destroy()`**.
+  Fixed memory cleanup in the `destroy()` lifecycle. The engine now
+  dynamically iterates and nullifies all event properties (`onclick`,
+  `oninput`, `onmouseover`, etc.) from the root element and its children,
+  preventing memory leaks for any event type.
+
+- **JSDOM `template.content` Compatibility**.
+  Adjusted the fresh template creation logic to be compatible with
+  Node.js / JSDOM environments for automated unit testing.
+
+- **Undefined Nested Array Safety**.
+  If child data (e.g., `menu.children`) is `undefined` or `null`, the engine
+  automatically converts it to an empty array `[]` to avoid errors or broken
+  layout structure.
+
+### ⚡ Performance & DX (Developer Experience)
+
+- **Bundle Size**: Increased slightly from 3.3 kB to 3.6 kB (minified +
+  gzipped) due to the addition of recursive logic and regex lookbehind.
+  Still remains an ultra-lightweight reactivity engine in its class.
+
+- **DX Warning at `mount()`**.
+  The engine now emits a `console.warn` if any reactive variable used in the
+  template is missing from `setProxy()`, making debugging easier.
+
 ## [1.0.2] - 2026-09-16
 
 ### ✨ Added

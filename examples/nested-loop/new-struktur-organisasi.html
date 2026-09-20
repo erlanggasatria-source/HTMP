@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Organization Structure — HTMP Demo</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      padding: 24px;
+      max-width: 800px;
+      margin: auto;
+      background: #f8fafc;
+      color: #1e293b;
+    }
+    h1 {
+      font-size: 1.5rem;
+      margin-bottom: 8px;
+    }
+    .subtitle {
+      color: #64748b;
+      font-size: 0.9rem;
+      margin-bottom: 24px;
+    }
+    .tree {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    ul {
+      list-style: none;
+      padding-left: 0;
+      margin: 0;
+    }
+    li {
+      padding: 6px 0;
+      position: relative;
+    }
+    li > ul {
+      padding-left: 24px;
+      border-left: 2px solid #e2e8f0;
+      margin-left: 10px;
+      margin-top: 4px;
+    }
+    .person {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .person:hover {
+      background: #eff6ff;
+    }
+    .person .icon {
+      margin-right: 6px;
+    }
+    .person .name {
+      font-weight: 500;
+    }
+    .person .role {
+      color: #64748b;
+      font-size: 0.85rem;
+      margin-left: 6px;
+    }
+    .level-1 > .person { background: #fef3c7; }
+    .level-1 > .person:hover { background: #fde68a; }
+    .level-2 > .person { background: #dbeafe; }
+    .level-2 > .person:hover { background: #bfdbfe; }
+    .level-3 > .person { background: #dcfce7; }
+    .level-3 > .person:hover { background: #bbf7d0; }
+    .level-4 > .person { background: #f3e8ff; }
+    .level-4 > .person:hover { background: #e9d5ff; }
+  </style>
+</head>
+<body>
+
+  <h1>🏛️ Polaris Organization Structure</h1>
+  <p class="subtitle">Click a name to view details — 4 hierarchy levels, no key, no template wrapper.</p>
+
+  <div id="app"></div>
+  <div id="root"></div>
+
+  <template id="page-template">
+    <div class="tree">
+      <ul>
+        <li :for="person in structure" class="level-1">
+          <span class="person" @click="showDetail(person)">
+            <span class="icon">{{ person.icon }}</span>
+            <span class="name">{{ person.name }}</span>
+            <span class="role">({{ person.position }})</span>
+          </span>
+
+          <ul>
+            <li :for="child in person.children" class="level-2">
+              <span class="person" @click="showDetail(child)">
+                <span class="icon">{{ child.icon }}</span>
+                <span class="name">{{ child.name }}</span>
+                <span class="role">({{ child.position }})</span>
+              </span>
+
+              <ul>
+                <li :for="sub in child.children" class="level-3">
+                  <span class="person" @click="showDetail(sub)">
+                    <span class="icon">{{ sub.icon }}</span>
+                    <span class="name">{{ sub.name }}</span>
+                    <span class="role">({{ sub.position }})</span>
+                  </span>
+
+                  <ul>
+                    <li :for="member in sub.children" class="level-4">
+                      <span class="person" @click="showDetail(member)">
+                        <span class="icon">{{ member.icon }}</span>
+                        <span class="name">{{ member.name }}</span>
+                        <span class="role">({{ member.position }})</span>
+                      </span>
+                    </li>
+                  </ul>
+                </li>
+              </ul>
+            </li>
+          </ul>
+        </li>
+      </ul>
+    </div>
+  </template>
+  
+  <script type="module">
+    import { HTMP } from 'https://unpkg.com/htm-projection@1.1.0/dist/esm/index.js';    
+
+    // ============================================
+    // MOCK DATA — 4-level organization structure
+    // ============================================
+    const structure = [
+      {
+        id: 'u1',
+        name: 'Budi Santoso',
+        position: 'Chairperson',
+        icon: '👑',
+        email: 'budi@polaris.org',
+        division: 'Leadership',
+        joined: '2020-01-15',
+        children: [
+          {
+            id: 'u2',
+            name: 'Citra Lestari',
+            position: 'Vice Chairperson 1',
+            icon: '👤',
+            email: 'citra@polaris.org',
+            division: 'Leadership',
+            joined: '2020-03-10',
+            children: [
+              {
+                id: 'd1',
+                name: 'IT Division',
+                position: 'Department',
+                icon: '🏢',
+                email: 'it@polaris.org',
+                division: 'Technology',
+                joined: '2020-06-01',
+                children: [
+                  { id: 'a1', name: 'Andi Wijaya', position: 'Member', icon: '👤', email: 'andi@polaris.org', division: 'IT', joined: '2021-02-14' },
+                  { id: 'a2', name: 'Bambang Sutrisno', position: 'Member', icon: '👤', email: 'bambang@polaris.org', division: 'IT', joined: '2021-04-20' },
+                  { id: 'a3', name: 'Cindy Halim', position: 'Member', icon: '👤', email: 'cindy@polaris.org', division: 'IT', joined: '2021-08-05' },
+                ]
+              },
+              {
+                id: 'd2',
+                name: 'HR Division',
+                position: 'Department',
+                icon: '🏢',
+                email: 'hr@polaris.org',
+                division: 'Human Resources',
+                joined: '2020-07-12',
+                children: [
+                  { id: 'a4', name: 'Dewi Anggraini', position: 'Member', icon: '👤', email: 'dewi@polaris.org', division: 'HR', joined: '2021-03-01' },
+                  { id: 'a5', name: 'Eko Prasetyo', position: 'Member', icon: '👤', email: 'eko@polaris.org', division: 'HR', joined: '2021-06-18' },
+                ]
+              }
+            ]
+          },
+          {
+            id: 'u3',
+            name: 'Doni Pratama',
+            position: 'Vice Chairperson 2',
+            icon: '👤',
+            email: 'doni@polaris.org',
+            division: 'Leadership',
+            joined: '2020-03-12',
+            children: [
+              {
+                id: 'd3',
+                name: 'Finance Division',
+                position: 'Department',
+                icon: '🏢',
+                email: 'finance@polaris.org',
+                division: 'Finance',
+                joined: '2020-09-01',
+                children: [
+                  { id: 'a6', name: 'Fitri Handayani', position: 'Member', icon: '👤', email: 'fitri@polaris.org', division: 'Finance', joined: '2021-05-10' },
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ];
+
+    // ============================================
+    // INIT HTMP
+    // ============================================
+    const templateEl = document.getElementById('page-template');
+    const templateString = templateEl.innerHTML;
+
+    const app = new HTMP('app', templateString);
+
+    // ============================================
+    // PROXY — state
+    // ============================================
+    app.setProxy({
+      structure,
+      selectedPerson: null
+    });
+
+    // ============================================
+    // PROGRAM — methods
+    // ============================================
+    app.setProgram({
+      showDetail: (person) => {
+        const lines = [
+          `${person.icon} ${person.name}`,
+          ``,
+          `Position   : ${person.position}`,
+          `Division   : ${person.division}`,
+          `Email      : ${person.email}`,
+          `Joined     : ${person.joined}`,
+          `ID         : ${person.id}`,
+          `Subordinates: ${person.children ? person.children.length : 0} people`
+        ];
+        alert(lines.join('\n'));
+      }
+    });
+
+    // ============================================
+    // MOUNT
+    // ============================================
+    templateEl.remove();
+    app.mount();    
+  </script>
+
+</body>
+</html>

@@ -45,22 +45,23 @@ Pattern → Parser → Proxy → Program → Precision Projection
 
 ## ✨ Core Advantages
 
-- **Ultra-lightweight (~3.3 KB min zip):** zero dependencies. Drop it into any project via npm or a single `<script>` tag from a CDN.
+- **Ultra-lightweight (~3.6 KB min zip):** zero dependencies. Drop it into any project via npm or a single `<script>` tag from a CDN.
 - **Friendly guest (embeddable):** non-invasive. It does not demand ownership of the entire `<body>`. You can embed HTMP in a specific `div` inside WordPress, jQuery apps, or even inside React/Vue components without causing DOM mutation conflicts.
 - **SPA ready:** equipped with complete lifecycle controls (`mount`, `unmount`, `remount`, `destroy`). Pair it with the native browser Navigation API to build a full single-page application without a heavy router library.
 - **Slot-based rendering:** say goodbye to `if` conditionals used to prevent rendering errors. If data is `null` or `[]`, the slot simply remains empty. When data arrives, the Proxy fills the exact slot instantly. The template remains a pure, declarative projection of your state.
+- **Unlimited nested `:for` (irregular trees):** render multi-level menus, organizational charts, or threaded comments at any depth — even when each branch has a different depth (imbalanced/irregular tree). No `if` conditionals needed: if a child array is `null` or `[]`, the nested loop simply renders nothing and the tree stays intact. The engine manages a Scope Chain so child loops can access variables from parent loops natively.
 
 ---
 
-## 📦 Verified Bundle Size v1.02
+## 📦 Verified Bundle Size v1.1.0
 
 [![BundlePhobia](https://badgen.net/bundlephobia/minzip/htm-projection)](https://bundlephobia.com/package/htm-projection)
 
 | Metric | Value |
 | :--- | :--- |
-| Bundle Size (Minified) | **9.4 kB** |
-| **Minified + Gzipped** | **3.3 kB** |
-| Download (Slow 3G) | **66 ms** |
+| Bundle Size (Minified) | **10.4 kB** |
+| **Minified + Gzipped** | **3.6 kB** |
+| Download (Slow 3G) | **72 ms** |
 | Download (Emerging 4G) | **4 ms** |
 
 > Verified independently by [BundlePhobia](https://bundlephobia.com/package/htm-projection).
@@ -306,7 +307,35 @@ A few things it highlights:
 
 > For production-style SPA routing, it is best served through a local HTTP server or hosting environment that supports URL rewriting.
 
-### 4. HTMP Note APP
+### 4. HTMP Nested Loop (Unlimited Depth)
+
+Live demo: <https://polaris-runtime.my.id/htmp-nested-loop/>
+
+Source: `examples/htmp-nested-loop/index.html`
+
+This example demonstrates unlimited nested `:for` rendering an organizational chart with irregular tree depth — some branches are 4 levels deep, others are 2. Same pattern. No key. No `<template>` wrapper. No `if` conditional.
+
+A few things it highlights:
+
+- **4-level nested loop** — Chairperson → Vice Chairperson → Division → Member.
+- **Irregular tree support** — branches with different depths render correctly with a single pattern.
+- **Click handler on every level** — each node has `@click` that works across all scopes.
+- **Slot-based rendering** — if a branch has no children (`[]` or `undefined`), the nested loop simply renders nothing and the tree stays intact.
+- **Scope Chain** — child loops access parent variables natively (`child.children`, `sub.children`).
+
+Why this is different:
+
+| | React | Vue | Alpine | HTMP |
+|---|---|---|---|---|
+| Nested loop | `map` + key | `v-for` + `:key` | `x-for` + `:key` | `:for` |
+| Template wrapper | — | `<template>` | `<template>` | — |
+| Conditional (if) | Required | Required | Required | Not needed |
+| Irregular tree | Manual check | Manual check | Manual check | Native |
+| Unlimited depth | Manual | Manual | Limited | Yes |
+
+Works from `file://`. No server. No build. No npm install.
+
+### 5. HTMP Note APP
 
 Live demo: <https://polaris-runtime.my.id/htmp-note>
 
@@ -318,7 +347,7 @@ npm install
 npm run dev
 ```
 
-### 5. AdminLTE User Directory Example
+### 6. AdminLTE User Directory Example
 
 Source: [examples/admin-lte/users.html](examples/admin-lte/users.html)
 

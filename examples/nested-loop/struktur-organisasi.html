@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HTMP Nested Loop</title>    
+</head>
+<body>	
+	<div id="app"></div>
+    <!-- 1. TEMPLATE WRAPPER: just to Avoid FOUC (Flash of Unstyled Content) -->
+    <template id="page-template">
+        <div id="app">
+            <h2>Polaris Organization Structure</h2>
+            
+            <!-- LEVEL 1: Chairperson -->
+            <ul class="list-group">
+                <li :for="leader in organization" class="list-group-item fw-bold text-primary">
+                👑 {{ leader.name }}                
+                <!-- LEVEL 2: Vice Chairperson -->
+                    <ul class="list-group-flush ms-3 mt-2">
+                        <li :for="deputy in leader.deputies" class="list-group-item">
+                        🧑‍💼 {{ deputy.name }}
+                        
+                        <!-- LEVEL 3: Division Head -->
+                        <ul class="list-group-flush ms-3 mt-2">
+                            <li :for="division in deputy.divisions" class="list-group-item">
+                            🏢 {{ division.name }}
+                            
+                            <!-- LEVEL 4: Members -->
+                            <ul class="list-group-flush ms-3 mt-2">
+                                <li :for="member in division.members" class="list-group-item text-muted">
+                                👤 {{ member.name }}
+                                </li>
+                            </ul>
+                            
+                            </li>
+                        </ul>                    
+                        </li>
+                </ul>                
+            </li>
+        </div>        
+    </template>
+
+    <!-- 2. SCRIPT MODULE: Load as ES Module -->
+    <script type="module">
+        import { HTMP } from 'https://unpkg.com/htm-projection@1.1.0/dist/esm/index.js';        
+
+        // 1. string HTML from tag <template>
+        const templateEl = document.getElementById('page-template');
+        const templateString = templateEl.innerHTML;		
+
+        // 2. initial HTMP root id 'app' and template above
+        const app = new HTMP('app', templateString);
+
+        // 3. Set Initial State (Empty/Null data is perfectly safe)
+        app.setProxy({
+            organization: [
+                {
+                id: "chair-1",
+                name: "Budi Santoso (Chairperson)",
+                deputies: [
+                    {
+                    id: "vice-1",
+                    name: "Citra Lestari (Vice Chairperson 1)",
+                    divisions: [
+                        {
+                        id: "div-1",
+                        name: "IT Division",
+                        members: [
+                            { id: "mem-1", name: "Member: Andi" },
+                            { id: "mem-2", name: "Member: Bambang" }
+                        ]
+                        },
+                        {
+                        id: "div-2",
+                        name: "HR Division",
+                        members: [] // Division has no members yet
+                        }
+                    ]
+                    },
+                    {
+                    id: "vice-2",
+                    name: "Doni Pratama (Vice Chairperson 2)",
+                    divisions: [] // Vice chair has no divisions yet
+                    }
+                ]
+                }
+            ]
+            });
+
+        // 4. Set Methods (Pure JavaScript)
+        app.setProgram({
+        });
+
+        // 5. remove <template> from DOM, const templateString still available for SPA
+        templateEl.remove();	
+        // 6. mounting
+        app.mount();
+    </script>
+</body>
+</html>

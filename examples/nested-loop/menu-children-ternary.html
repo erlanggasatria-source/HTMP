@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HTMP Menu With Children (Ternary)</title>
+  <style>
+    body { font-family: 'Source Sans 3', sans-serif; padding: 20px; background: #f4f6f9; }
+    .sidebar-menu { list-style: none; padding: 0; margin: 0; width: 280px; background: #343a40; border-radius: 6px; overflow: hidden; }
+    .nav-item { margin: 0; }
+    .nav-link { display: flex; align-items: center; gap: 10px; padding: 10px 16px; text-decoration: none; color: #c2c7d0; cursor: pointer; transition: background .15s, color .15s; }
+    .nav-link:hover { background: rgba(255,255,255,.08); color: #fff; }
+    .nav-link.active { background: #007bff; color: #fff; }
+    .nav-icon { font-size: 1rem; width: 20px; text-align: center; }
+    .nav-arrow { margin-left: auto; font-size: .8rem; transition: transform .2s; }
+    .nav-arrow.open { transform: rotate(90deg); }
+    /* Submenu */
+    .nav-treeview { list-style: none; padding: 0; margin: 0; background: rgba(0,0,0,.2); }
+    .nav-treeview .nav-link { padding-left: 40px; font-size: .9em; }
+    .nav-treeview .nav-treeview .nav-link { padding-left: 60px; }
+    .nav-treeview .nav-icon { font-size: .6rem; }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+
+  <script type="module">
+    import { HTMP } from 'https://unpkg.com/htm-projection@1.1.0/dist/esm/index.js';
+
+    // ===== DATA MENU (dengan children) =====
+    const menuItems = [
+      { label: 'Dashboard', icon: 'bi-speedometer', children: [
+          { label: 'Dashboard v1', href: './index.html' },
+          { label: 'Dashboard v2', href: './index2.html' },
+          { label: 'Dashboard v3', href: './index3.html' },
+      ]},
+      { label: 'Starter Page', href: './starter.html', icon: 'bi-file-earmark', children:[] },
+      { label: 'Users', href: './users.html', icon: 'bi-people', active: true, children:[] },
+      { label: 'Layout Options', icon: 'bi-clipboard-fill', children: [
+          { label: 'Default Sidebar', href: './layout/unfixed-sidebar.html' },
+          { label: 'Fixed Sidebar', href: './layout/fixed-sidebar.html' },
+          { label: 'Fixed Header', href: './layout/fixed-header.html' },
+      ]},
+    ];
+
+    // ===== TEMPLATE =====
+    // Ternary dipakai untuk:
+    // 1. Menampilkan/menyembunyikan submenu (display:none)
+    // 2. Memilih ikon panah (chevron-right vs chevron-down)
+    // 3. Menandai item aktif
+    const pattern = `
+      <ul class="nav sidebar-menu">
+        <li :for="menu in menuItems" class="nav-item">
+
+          <!-- LINK LANGSUNG (tanpa children) -->
+          <a :href="menu.href || '#'"
+             :class="menu.active ? 'nav-link active' : 'nav-link'"
+             @click="clickMenu(menu)">
+            <i :class="'nav-icon bi ' + (menu.icon || 'bi-circle')"></i>
+            <span>{{ menu.label }}</span>
+            <i :class="'nav-arrow bi ' + (hasChildren(menu) ? 'bi-chevron-right' : '')"
+               :style="hasChildren(menu) ? '' : 'display:none'"></i>
+          </a>
+
+          <!-- SUBMENU (nested :for) -->
+          <ul class="nav-treeview">
+            <li :for="list in menu.children" class="nav-item">
+              <a :href="list.href || '#'" class="nav-link" @click="clickMenu(list)">
+                <i class="nav-icon bi bi-circle"></i>
+                <span>{{ list.label }}</span>
+              </a>
+            </li>
+          </ul>
+
+        </li>
+      </ul>
+    `;
+
+    // ===== INISIALISASI =====
+    const app = new HTMP('app', pattern);
+
+    app.setProxy({
+      menuItems,
+      hasChildren: (menu) => Array.isArray(menu.children) && menu.children.length > 0
+    });
+
+    app.setProgram({
+      clickMenu: (item) => console.log('Klik:', item.label),
+      toggleMenu: (item) => {
+        // Toggle state open pada item (reaktif)
+        item.open = !item.open;
+      }
+    });
+
+    app.mount();
+    console.log(app);
+  </script>
+</body>
+</html>

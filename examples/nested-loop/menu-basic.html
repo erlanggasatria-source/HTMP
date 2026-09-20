@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HTMP Menu Basic (No Children)</title>
+</head>
+<body>
+  <div id="app"></div>
+
+  <script type="module">
+    import { HTMP } from 'https://unpkg.com/htm-projection@1.1.0/dist/esm/index.js';
+
+    // ===== DATA MENU (flat, tanpa children) =====
+    const menuItems = [
+      { label: 'Dashboard', href: './index.html', icon: 'bi-speedometer' },
+      { label: 'Starter Page', href: './starter.html', icon: 'bi-file-earmark' },
+      { label: 'Users', href: './users.html', icon: 'bi-people', active: true },
+      { label: 'Settings', href: './settings.html', icon: 'bi-gear' },
+    ];
+
+    // ===== TEMPLATE =====
+    const pattern = `
+      <ul class="nav sidebar-menu">
+        <li :for="item in menuItems">
+          <a :href="item.href"
+             :class="item.active ? 'nav-link active' : 'nav-link'">
+            <i :class="'nav-icon bi ' + item.icon"></i>
+            <p>{{ item.label }}</p>
+          </a>
+        </li>
+      </ul>
+    `;
+
+    // ===== INISIALISASI =====
+    const app = new HTMP('app', pattern);
+
+    app.setProxy({
+      menuItems
+    });
+
+    app.setProgram({
+      clickMenu: (item) => console.log('Klik:', item.label)
+    });
+
+    app.mount();
+  </script>
+</body>
+</html>
