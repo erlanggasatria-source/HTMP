@@ -109,4 +109,143 @@ assert('select initial value', testSelect.value === 'user', 'select should rende
 app4.proxy.role = 'admin';
 assert('select reactive update', testSelect.value === 'admin', 'select should update value when proxy changes');
 
+// ==========================================
+// TEST 5: Nested :for (Multi-level Hierarchy)
+// ==========================================
+const app5 = new HTMP('root', `
+  <div>
+    <ul>
+      <li :for="menu in menus">
+        <span class="menu-name">{{ menu.label }}</span>
+        <ul>
+          <li :for="child in menu.children">
+            <span class="child-name">{{ child.label }}</span>
+            <ul>
+              <li :for="sub in child.children">
+                <span class="sub-name">{{ sub.label }}</span>
+              </li>
+            </ul>
+          </li>
+        </ul>
+      </li>
+    </ul>
+  </div>
+`);
+
+app5.setProxy({
+  menus: [
+    {
+      label: 'Dashboard',
+      children: [
+        { label: 'v1', children: [{ label: 'v1-a' }, { label: 'v1-b' }] },
+        { label: 'v2', children: [] }
+      ]
+    },
+    { label: 'Starter', children: [] }
+  ]
+});
+
+app5.mount();
+
+// Helper: cek apakah elemen tersembunyi (display:none) oleh placeholder
+function isVisible(el) {
+  let cur = el;
+  while (cur && cur.nodeType === 1) {
+    if (cur.style && cur.style.display === 'none') return false;
+    cur = cur.parentElement;
+  }
+  return true;
+}
+function visibleNames(selector) {
+  return Array.from(document.querySelectorAll(selector))
+    .filter(isVisible)
+    .map(n => n.textContent.trim());
+}
+// Helper baru: ambil elemen visible pertama (untuk diklik)
+function getFirstVisible(selector) {
+  return Array.from(document.querySelectorAll(selector)).find(isVisible);
+}
+
+// Test 5A: Level 1 (root menus)
+const menuNames = visibleNames('.menu-name');
+assert('nested level1 count', menuNames.join(',') === 'Dashboard,Starter', `level1 should render 2 menus, got ${menuNames.join(',')}`);
+
+// Test 5B: Level 2 (children)
+const childNames = visibleNames('.child-name');
+assert('nested level2 count', childNames.join(',') === 'v1,v2', `level2 should render children, got ${childNames.join(',')}`);
+
+// Test 5C: Level 3 (sub-children)
+const subNames = visibleNames('.sub-name');
+assert('nested level3 count', subNames.join(',') === 'v1-a,v1-b', `level3 should render only v1's children, got ${subNames.join(',')}`);
+
+// Test 5D: Empty children array renders nothing
+const starterLi = Array.from(document.querySelectorAll('li')).find(li => {
+  const span = li.querySelector('.menu-name');
+  return span && span.textContent.trim() === 'Starter';
+});
+const starterSubItems = starterLi ? Array.from(starterLi.querySelectorAll('ul li')).filter(isVisible).length : -1;
+assert('empty children no items', starterSubItems === 0, `Starter (empty children) should render no sub-items, got ${starterSubItems}`);
+
+// Test 5E: Reactive update on nested data
+app5.proxy.menus[0].children[0].children.push({ label: 'v1-c' });
+const subNamesAfter = visibleNames('.sub-name');
+assert('nested reactive append', subNamesAfter.join(',') === 'v1-a,v1-b,v1-c', `nested append should re-render, got ${subNamesAfter.join(',')}`);
+
+
+// ==========================================
+// TEST 6: Event Handlers in Nested :for
+// ==========================================
+let clickedMenu = null;
+let clickedChild = null;
+let clickedSub = null;
+
+const app6 = new HTMP('root', `
+  <div>
+    <ul>
+      <li :for="menu in menus">
+        <button class="btn-menu" @click="onMenu(menu)">{{ menu.label }}</button>
+        <ul>
+          <li :for="child in menu.children">
+            <button class="btn-child" @click="onChild(child)">{{ child.label }}</button>
+            <ul>
+              <li :for="sub in child.children">
+                <button class="btn-sub" @click="onSub(sub)">{{ sub.label }}</button>
+              </li>
+            </ul>
+          </li>
+        </ul>
+      </li>
+    </ul>
+  </div>
+`);
+
+app6.setProxy({
+  menus: [
+    {
+      label: 'Root',
+      children: [
+        { label: 'Child', children: [{ label: 'Sub' }] }
+      ]
+    }
+  ]
+});
+
+app6.setProgram({
+  onMenu: (m) => { clickedMenu = m; },
+  onChild: (c) => { clickedChild = c; },
+  onSub: (s) => { clickedSub = s; }
+});
+
+app6.mount();
+
+// Gunakan getFirstVisible agar tidak mengklik tombol di dalam template display:none
+getFirstVisible('.btn-menu').click();
+assert('event level1 item', clickedMenu && clickedMenu.label === 'Root', 'level1 event should receive menu item');
+
+getFirstVisible('.btn-child').click();
+assert('event level2 item', clickedChild && clickedChild.label === 'Child', 'level2 event should receive child item');
+
+getFirstVisible('.btn-sub').click();
+assert('event level3 item', clickedSub && clickedSub.label === 'Sub', 'level3 event should receive sub item');
+
 console.log('ALL_SMOKE_TESTS_PASSED');

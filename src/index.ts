@@ -47,8 +47,7 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
     this.rootId = rootId;
     this.parser = new DOMParser();
     this.dom = this.parser.parseFromString(templateString, 'text/html').body.firstElementChild;
-    
-    // Tandai root sebagai titik berhenti iterator
+        
     if (this.dom) {
       (this.dom as any)._htmp = "root";
     }
@@ -158,112 +157,139 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
       }
     }
     
-    if (node.nodeType === Node.ELEMENT_NODE) {
+        if (node.nodeType === Node.ELEMENT_NODE) {
       let isListTemplate = false;
+      let loopItemName = '';
       
+      // === 1. PRE-SCAN: Cek apakah elemen ini adalah :for ===
+      for (const attr of Array.from((node as Element).attributes)) {
+        if (attr.name === ':for') {
+          const m = attr.value.match(/(\w+)\s+in\s+(.*)/);
+          if (m) loopItemName = m[1];
+          isListTemplate = true;
+        }
+      }
+
       // Generate ID sekali per Element Node
       const htmpId = this._htmpIdCounter++;
       (node as Element as any)._htmp = htmpId;
 
       for (const attr of Array.from((node as Element).attributes)) {
+        // 1. Event Binding (@click, @input)
         if (attr.name.startsWith('@')) {
-          const eventName = attr.name.slice(1);
-          const rawValue = attr.value.trim();
-          const match = rawValue.match(/(\w+)\(([^)]*)\)/);
-          
-          if (match) {
-            const programName = match[1];
-            const argsStr = match[2].trim();
-            const argTokens = argsStr ? argsStr.split(',').map(s => s.trim()) : [];
+          if (!isListTemplate) {
+            const eventName = attr.name.slice(1);
+            const rawValue = attr.value.trim();
+            const match = rawValue.match(/(\w+)\(([^)]*)\)/);
             
-            (node as Element & { [key: string]: unknown })[`on${eventName}`] = (e: Event) => {
-              if (this.programs[programName]) {
-                const finalArgs = argTokens.map(token => {
-                  if (token === 'e' || token === 'event') return e;
-                  if ((token.startsWith("'") && token.endsWith("'")) || (token.startsWith('"') && token.endsWith('"'))) {
-                    return token.slice(1, -1);
-                  }
-                  if (!isNaN(Number(token))) return Number(token);
-                  return token;
-                });
-                this.programs[programName](...finalArgs);
-              }
-            };
-          } else {
-            const programName = rawValue;
-            (node as Element & { [key: string]: unknown })[`on${eventName}`] = (e: Event) => {
-              if (this.programs[programName]) this.programs[programName](e);
-            };
+            if (match) {
+              const programName = match[1];
+              const argsStr = match[2].trim();
+              const argTokens = argsStr ? argsStr.split(',').map(s => s.trim()) : [];
+              
+              (node as Element & { [key: string]: unknown })[`on${eventName}`] = (e: Event) => {
+                if (this.programs[programName]) {
+                  const finalArgs = argTokens.map(token => {
+                    if (token === 'e' || token === 'event') return e;
+                    if ((token.startsWith("'") && token.endsWith("'")) || (token.startsWith('"') && token.endsWith('"'))) {
+                      return token.slice(1, -1);
+                    }
+                    if (!isNaN(Number(token))) return Number(token);
+                    return token;
+                  });
+                  this.programs[programName](...finalArgs);
+                }
+              };
+            } else {
+              const programName = rawValue;
+              (node as Element & { [key: string]: unknown })[`on${eventName}`] = (e: Event) => {
+                if (this.programs[programName]) this.programs[programName](e);
+              };
+            }
           }
           (node as Element).removeAttribute(attr.name);
         }
+        // 2. Attribute Binding (:class, :value, dll)
         else if (attr.name.startsWith(':') && attr.name !== ':for') {
-          const realAttrName = attr.name.slice(1);
-          const expr = attr.value;
-          const cleanExpr = expr.replace(/'[^']*'|\"[^\"]*\"/g, '');
-          const vars = cleanExpr.match(/[a-zA-Z_][a-zA-Z0-9_.]*/g) || [];
-          const rootKeys = new Set<string>();
-          vars.forEach(v => rootKeys.add(v.split('.')[0]));
-          
-          if (rootKeys.size === 0) rootKeys.add(expr);
-          
-          rootKeys.forEach(key => {
-            if (!this.registry[key]) this.registry[key] = [];
-            this.registry[key].push({
-              type: 'attribute',
-              path: [...currentPath],
-              attrName: realAttrName,
-              attrExpr: expr,
-              _htmpId: htmpId // Simpan ID ke registry
+          if (!isListTemplate) {
+            const realAttrName = attr.name.slice(1);
+            const expr = attr.value;
+            const cleanExpr = expr.replace(/'[^']*'|\"[^\"]*\"/g, '');
+            const vars = cleanExpr.match(/[a-zA-Z_][a-zA-Z0-9_.]*/g) || [];
+            const rootKeys = new Set<string>();
+            vars.forEach(v => rootKeys.add(v.split('.')[0]));
+            
+            if (rootKeys.size === 0) rootKeys.add(expr);
+            
+            rootKeys.forEach(key => {
+              if (!this.registry[key]) this.registry[key] = [];
+              this.registry[key].push({
+                type: 'attribute',
+                path: [...currentPath],
+                attrName: realAttrName,
+                attrExpr: expr,
+                _htmpId: htmpId
+              });
             });
-          });
+          }
           (node as Element).removeAttribute(attr.name);
         }
+        // 3. List Rendering (:for)
         else if (attr.name === ':for') {
-          const match = attr.value.match(/(\w+)\s+in\s+(\w+)/);
+          const match = attr.value.match(/(\w+)\s+in\s+(.*)/);
           if (match) {
             const itemName = match[1];
-            const listKey = match[2];
-            const originalHTML = (node as Element).outerHTML;
+            const listExpr = match[2].trim();
+            
+            const isRootList = /^[\w$]+$/.test(listExpr);
+            
+            if (isRootList) {
+              const listKey = listExpr;
+              const originalHTML = (node as Element).outerHTML;
+              const innerHTML = (node as Element).innerHTML;
+              
+              const listBinding: ListBinding = {
+                type: 'list',
+                templateNode: node as Element,
+                parentEl: node.parentNode as Element,
+                itemName,
+                listKey,
+                originalHTML
+              };
+              
+              if (!this.registry[listKey]) this.registry[listKey] = [];
+              this.registry[listKey].push(listBinding);
+              
+              const nestedForMatches = [...innerHTML.matchAll(/:for="(\w+)\s+in\s+.*?"/g)];
+              const nestedItemNames = new Set(nestedForMatches.map(m => m[1]));
+              nestedItemNames.add(itemName); // Masukkan juga nama item induk
+              
+              const regexText = /\{\{\s*(.*?)\s*\}\}/g;
+              const regexAttr = /:(?!for)\w+="([^"]+)"/g;
+              const allExprs: string[] = [];
+              let m;
+              
+              while ((m = regexText.exec(innerHTML)) !== null) allExprs.push(m[1]);
+              while ((m = regexAttr.exec(innerHTML)) !== null) allExprs.push(m[1]);
+              
+              const rootKeysInLoop = new Set<string>();
+              allExprs.forEach(expr => {
+                 const cleanExpr = expr.replace(/'[^']*'|"[^"]*"/g, '');
+                 const vars = cleanExpr.match(/[a-zA-Z_][a-zA-Z0-9_.]*/g) || [];
+                 vars.forEach(v => {
+                   const rootKey = v.split('.')[0];
+                   if (!nestedItemNames.has(rootKey)) {
+                     rootKeysInLoop.add(rootKey);
+                   }
+                 });
+              });
 
-            const listBinding: ListBinding = {
-              type: 'list',
-              templateNode: node as Element,
-              parentEl: node.parentNode as Element,
-              itemName,
-              listKey,
-              originalHTML: originalHTML
-            };
+              rootKeysInLoop.forEach(key => {
+                if (!this.registry[key]) this.registry[key] = [];
+                this.registry[key].push(listBinding);
+              });
+            }
             
-            const innerHTML = (node as Element).innerHTML;
-            const regexText = /\{\{\s*(.*?)\s*\}\}/g;
-            const regexAttr = /:\w+="([^"]+)"/g;
-            const allExprs: string[] = [];
-            let m;
-            
-            while ((m = regexText.exec(innerHTML)) !== null) allExprs.push(m[1]);
-            while ((m = regexAttr.exec(innerHTML)) !== null) allExprs.push(m[1]);
-            
-            const rootKeysInLoop = new Set<string>();
-            allExprs.forEach(expr => {
-               const cleanExpr = expr.replace(/'[^']*'|"[^"]*"/g, '');
-               const vars = cleanExpr.match(/[a-zA-Z_][a-zA-Z0-9_.]*/g) || [];
-               vars.forEach(v => {
-                 const rootKey = v.split('.')[0];
-                 if (rootKey !== itemName) {
-                   rootKeysInLoop.add(rootKey);
-                 }
-               });
-            });
-
-            if (!this.registry[listKey]) this.registry[listKey] = [];
-            this.registry[listKey].push(listBinding);
-            
-            rootKeysInLoop.forEach(key => {
-              if (!this.registry[key]) this.registry[key] = [];
-              this.registry[key].push(listBinding);
-            });
-
             (node as Element).removeAttribute(':for');
             isListTemplate = true; 
           }
@@ -278,7 +304,6 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
     }
   }
 
-    // === METODE BARU: SELF-HEALING RESOLVER ===
   private resolveNode(key: string, binding: HtmpBinding): Node | null {
     if (!this.dom) return null;
     
@@ -359,8 +384,7 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
         delete this.registry[key];
       }
     }
-  }
-  // ==========================================
+  }  
 
   renderDiff() {
     if (this.pendingDiff.size === 0 || !this.dom) return;
@@ -402,7 +426,6 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
     }
   }
 
-  // Parameter diubah: key ditambahkan untuk keperluan cleanup registry
   renderAttribute(key: string, binding: Extract<HtmpBinding, { type: 'attribute' }>): void {
     const targetNode = this.resolveNode(key, binding);
     if (!targetNode || targetNode.nodeType !== Node.ELEMENT_NODE) return;
@@ -441,24 +464,22 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
     }
   }
 
-    renderList(binding: Extract<HtmpBinding, { type: 'list' }>): void {
-    const items = Array.isArray(this.proxy[binding.listKey]) ? this.proxy[binding.listKey] as unknown[] : [];
+  renderList(binding: ListBinding, explicitItems?: unknown[], parentItem?: unknown, parentItemName?: string): void {
+    const items = explicitItems || (Array.isArray(this.proxy[binding.listKey]) ? this.proxy[binding.listKey] as unknown[] : []);
     const { templateNode, parentEl, itemName, originalHTML } = binding; 
     if (!parentEl) return;
     
     const actualParent = parentEl;
     const newKeys = new Set<string>();
     
-    // === SOLUSI: Gunakan <template> agar <tr> tidak dibuang oleh browser ===
-    const templateWrapper = document.createElement('template');
-    templateWrapper.innerHTML = originalHTML;
-    const freshTemplate = templateWrapper.content.firstElementChild as Element;
-    
-    // Fallback jika ternyata bukan elemen tabel (biasanya div)
-    const finalTemplate = freshTemplate || templateNode.cloneNode(true) as Element;
-    // =====================================================================
+    const wrapper = document.createElement('template');
+    wrapper.innerHTML = originalHTML;
+    const freshTemplate = wrapper.content.firstElementChild as Element;
+        
+    freshTemplate.removeAttribute(':for');    
 
     const proxyKeys = Object.keys(this.proxy);
+        
     const evalInLoop = (expr: string, item: unknown): unknown => {
       const strings: string[] = [];
       let maskedExpr = expr.replace(/'[^']*'|"[^"]*"/g, (match) => {
@@ -466,16 +487,22 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
         return `__STR_${strings.length - 1}__`;
       });
 
-      let finalExpr = maskedExpr;
+      let finalExpr = maskedExpr;        
+      finalExpr = finalExpr.replace(new RegExp(`(?<![\\w.])${itemName}\\b`, 'g'), 'item');
+            
+      if (parentItem && parentItemName) {
+        finalExpr = finalExpr.replace(new RegExp(`(?<![\\w.])${parentItemName}\\b`, 'g'), 'parentItem');
+      }
+            
       proxyKeys.forEach(k => {
-        finalExpr = finalExpr.replace(new RegExp(`(^|[^.\\w])${k}\\b`, 'g'), `$1proxy.${k}`);
+        finalExpr = finalExpr.replace(new RegExp(`(?<![\\w.])${k}\\b`, 'g'), `proxy.${k}`);
       });
-      finalExpr = finalExpr.replace(new RegExp(`(^|[^.\\w])${itemName}\\b`, 'g'), `$1item`);
+      
       finalExpr = finalExpr.replace(/__STR_(\d+)__/g, (_m, idx) => strings[parseInt(idx)]);
 
       try {
-        const func = new Function('proxy', 'item', `return ${finalExpr};`);
-        return func(this.proxy, item);
+        const func = new Function('proxy', 'item', 'parentItem', `return ${finalExpr};`);
+        return func(this.proxy, item, parentItem);
       } catch(e) { 
         console.error("Eval error in loop:", e, finalExpr); 
         return undefined; 
@@ -491,15 +518,15 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
       let childNode = actualParent.querySelector(`#${domId}`) as HTMLElement | null;
       
       if (!childNode) {
-        childNode = finalTemplate.cloneNode(true) as HTMLElement;
+        childNode = freshTemplate.cloneNode(true) as HTMLElement;
         childNode.id = domId;
         actualParent.appendChild(childNode);
-        this.processListItem(childNode, finalTemplate, item, itemName, evalInLoop, true);
+        this.processListItem(childNode, freshTemplate, item, itemName, evalInLoop, true, parentItem, parentItemName);
       } else {
-        this.processListItem(childNode, finalTemplate, item, itemName, evalInLoop, false);
+        this.processListItem(childNode, freshTemplate, item, itemName, evalInLoop, false, parentItem, parentItemName);
       }
     });
-
+    
     for (let i = actualParent.children.length - 1; i >= 0; i--) {
       const node = actualParent.children[i];
       if (node.id.startsWith(`${binding.listKey}-`) && !newKeys.has(node.id)) {
@@ -508,13 +535,15 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
     }
   }
 
-  processListItem(
+    processListItem(
     clonedNode: Node, 
     templateNode: Node, 
     item: unknown, 
     itemName: string, 
     evalInLoop: (expr: string, item: unknown) => unknown,
-    isFirstRender: boolean
+    isFirstRender: boolean,
+    parentItem?: unknown,
+    parentItemName?: string
   ): void {
     if (clonedNode.nodeType === Node.TEXT_NODE && templateNode.nodeType === Node.TEXT_NODE) {
       const tNode = templateNode as Text;
@@ -532,7 +561,48 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
       const cEl = clonedNode as Element;
       const tEl = templateNode as Element;
       
-      for (const attr of Array.from(tEl.attributes)) {
+      for (const attr of Array.from(tEl.attributes)) {              
+        if (attr.name === ':for') {
+          const match = attr.value.match(/(\w+)\s+in\s+(.*)/);
+          if (match) {
+            const innerItemName = match[1];
+            const innerListExpr = match[2];
+            
+            if (parentItemName && innerItemName === parentItemName) {
+              console.warn(
+                `[HTMP Warn] Variable name "${innerItemName}" nested :for collide with parent scope. ` +
+                `Use unique name instead to avoid shadowing variable.`
+              );
+            }
+            
+            let childItems = evalInLoop(innerListExpr, item);
+            if (!Array.isArray(childItems)) {
+              childItems = [];
+            }
+            
+            const innerParentEl = cEl.parentNode as Element;
+            if (innerParentEl) {              
+              (cEl as HTMLElement).style.display = 'none';
+              
+              const cleanTemplate = tEl.cloneNode(true) as Element;
+              cleanTemplate.removeAttribute(':for');
+              
+              const parentId = (item as any)?.id !== undefined ? (item as any).id : 'root';
+              const nestedBinding: ListBinding = {
+                type: 'list',
+                templateNode: cleanTemplate,
+                parentEl: innerParentEl,
+                itemName: innerItemName,
+                listKey: `${itemName}-${parentId}-children`, 
+                originalHTML: cleanTemplate.outerHTML
+              };
+                            
+              this.renderList(nestedBinding, childItems as unknown[], item, itemName);
+            }
+          }
+          return; 
+        }  
+                
         if (attr.name.startsWith('@')) {
           const eventName = attr.name.slice(1);
           const rawValue = attr.value.trim();
@@ -552,6 +622,7 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
                   }
                   if (!isNaN(Number(token))) return Number(token);
                   if (typeof itemName !== 'undefined' && token === itemName) return item;
+                  if (typeof parentItemName !== 'undefined' && token === parentItemName) return parentItem; // Akses parent di event handler
                   return token;
                 });
                 this.programs[programName](...finalArgs);
@@ -566,6 +637,7 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
           
           if (isFirstRender) cEl.removeAttribute(attr.name);
         }
+                
         else if (attr.name.startsWith(':')) {
           const realAttrName = attr.name.slice(1);
           const expr = attr.value;
@@ -600,11 +672,12 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
         }
       }
 
+      // Rekursi ke anak-anak elemen saat ini
       const cChildren = Array.from(cEl.childNodes);
       const tChildren = Array.from(tEl.childNodes);
       for (let i = 0; i < cChildren.length; i++) {
         if (tChildren[i]) {
-          this.processListItem(cChildren[i], tChildren[i], item, itemName, evalInLoop, isFirstRender);
+          this.processListItem(cChildren[i], tChildren[i], item, itemName, evalInLoop, isFirstRender, parentItem, parentItemName);
         }
       }
     }
@@ -630,14 +703,14 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
       
       registeredKeys.forEach(key => {
         if (!proxyKeys.includes(key)) {
-          console.warn(`[HTMP Warn] Variabel "${key}" digunakan di template, tetapi belum didaftarkan di proxy. UI mungkin tidak akan reaktif terhadap perubahannya.`);
+          console.warn(`[HTMP Warn] Variabel "${key}" use in template, but proxy not.`);
         }
       });
 
       this.renderDiff();
       this.hooks.mount.forEach(fn => fn());
     } else {
-      console.error(`Root ID ${this.rootId} tidak ditemukan!`);
+      console.error(`Root ID ${this.rootId} not found!`);
     }
   }
 
@@ -660,27 +733,37 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
       this.renderDiff();
       this.hooks.remount.forEach(fn => fn());
     } else {
-      console.error(`Root ID ${this.rootId} tidak ditemukan!`);
+      console.error(`Root ID ${this.rootId} not found!`);
     }
   }
 
-  destroy() {
+    destroy() {
     this.unmount();
     
     if (this.dom) {
-      this.dom.querySelectorAll('*').forEach(el => {
-        const htmlEl = el as HTMLElement;
-        htmlEl.onclick = null;
-        htmlEl.oninput = null;
-        htmlEl.onchange = null;
+      this.dom.querySelectorAll('*').forEach((el: Element) => {
+        const htmlEl = el as HTMLElement;        
+        for (const key in htmlEl) {
+          if (key.startsWith('on') && typeof (htmlEl as any)[key] === 'function') {
+            (htmlEl as any)[key] = null;
+          }
+        }
       });
-    }
 
+      const rootHtmlEl = this.dom as HTMLElement;
+      for (const key in rootHtmlEl) {
+        if (key.startsWith('on') && typeof (rootHtmlEl as any)[key] === 'function') {
+          (rootHtmlEl as any)[key] = null;
+        }
+      }
+    }
+    
     this.registry = {};
     this.proxy = {} as T;
     this.programs = {};
     this.pendingDiff.clear();
-    this.dom = null;
+    this.dom = null; 
+        
     this.hooks.destroy.forEach(fn => fn());
     this.hooks = { mount: [], unmount: [], remount: [], destroy: [] };
   }

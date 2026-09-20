@@ -106,7 +106,10 @@
   <!--end::Head-->
   <!--begin::Body-->
   <body class="layout-fixed sidebar-expand-lg bg-body-tertiary">
-    <!--begin::App Wrapper-->
+    <!--begin:: div target and App Wrapper as template full page-->
+    <div id="app"></div>
+    <template id="page-template">
+    <div>
     <div class="app-wrapper">
       <!--begin::Header-->
       <nav class="app-header navbar navbar-expand bg-body">
@@ -1201,8 +1204,54 @@
                   </div>
                   <!--end::Card Header-->
                   <!--begin::Card Body-->
-                  <div id="users-card-content"></div>
-                  <!--end::Card Footer-->
+                  <div class="card-body p-0">
+                    <div class="table-responsive">
+                    <p colspan="6" :style="filteredUsers.length === 0 ? 'display: block;' : 'display: none:'" >{{ filteredUsers.length === 0 ? 'No users found' : '' }}</p>
+                    <table class="table table-hover align-middle m-0">
+                      <thead>
+                        <tr><th>User</th><th>Email</th><th>Role</th><th>Status</th><th>Created</th><th class="text-end">Actions</th></tr>
+                      </thead>
+                      <tbody>              
+                        <tr :for="user in pagedUsers">
+                          <td><div class="d-flex align-items-center"><img :src="user.avatar" alt="" class="img-size-32 rounded-circle me-2" /><span class="fw-medium">{{ user.name }}</span></div></td>
+                          <td>{{ user.email }}</td>
+                          <td><span :class="'badge ' + roleClass(user.role)">{{ user.role }}</span></td>
+                          <td><span :class="'badge ' + statusClass(user.status)">{{ user.status }}</span></td>
+                          <td>{{ user.created }}</td>
+                          <td class="text-end">
+                            <div class="btn-group btn-group-sm">
+                              <button type="button" class="btn btn-outline-secondary" @click="editUser(user)" :aria-label="'Edit ' + user.name"><i class="bi bi-pencil" aria-hidden="true"></i></button>
+                              <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modal-delete-user" @click="selectUser(user)" :aria-label="'Delete ' + user.name"><i class="bi bi-trash" aria-hidden="true"></i></button>
+                            </div>
+                          </td>                
+                        </tr>              
+                      </tbody>
+                    </table>
+                      </div>
+                    </div>
+                    <div class="card-footer clearfix">
+                      <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <div class="d-flex align-items-center gap-2">
+                          <span class="fs-7 text-body-secondary">Showing {{ rangeStart }} to {{ rangeEnd }} of {{ totalUsers }} users</span>
+                          <select class="form-select form-select-sm w-auto" aria-label="Users per page" @change="changePageSize(e)">
+                            <option :for="size in pageSizes" :value="size">{{ size }}</option>
+                          </select>
+                        </div>
+                        <ul class="pagination pagination-sm m-0">
+                          <li class="page-item" :class="page === 1 ? 'disabled' : ''">
+                            <button class="page-link" type="button" aria-label="Previous" @click="previousPage()">&laquo;</button>
+                          </li>
+                          <li class="page-item" :for="pageNumber in pages" :class="pageNumber === page ? 'active' : ''">
+                            <button class="page-link" type="button" @click="goToPage(pageNumber)">{{ pageNumber }}</button>
+                          </li>
+                          <li class="page-item" :class="page === pageCount ? 'disabled' : ''">
+                            <button class="page-link" type="button" aria-label="Next" @click="nextPage()">&raquo;</button>
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+                  <!--end::Card Body-->
+                  <!--begin::Card Footer-->                  
                 </div>
                 <!--end::Card-->
               </div>
@@ -1344,6 +1393,8 @@
       <!--end::Footer-->
     </div>
     <!--end::App Wrapper-->
+    </div>
+    </template>
     <!--begin::Script-->
     <!--begin::Third Party Plugin(OverlayScrollbars)-->
     <script
@@ -1431,87 +1482,43 @@
      module (since 4.1) — no page script needed. Only the no-flash snippet
      in <head> stays inline, because it must run before first paint. -->
     <!--end::Color Mode Toggle-->
-
-    <!--end::Script-->
     <script type="module">
-      import { HTMP } from 'https://cdn.jsdelivr.net/npm/htm-projection@1.0.2/+esm';
+        const users = [
+          { id: 1, name: 'Alexander Pierce', email: 'alexander.pierce@example.com', avatar: './assets/img/user1-128x128.jpg', role: 'Administrator', status: 'Active', created: 'Mar 12, 2025' },
+          { id: 2, name: 'Sarah Bullock', email: 'sarah.bullock@example.com', avatar: './assets/img/user3-128x128.jpg', role: 'Editor', status: 'Active', created: 'Apr 3, 2025' },
+          { id: 3, name: 'Daniel Mananta', email: 'daniel.cooper@example.com', avatar: './assets/img/user6-128x128.jpg', role: 'Author', status: 'Pending', created: 'Apr 28, 2025' },
+          { id: 4, name: 'Nora Vans', email: 'nora.vans@example.com', avatar: './assets/img/user4-128x128.jpg', role: 'Editor', status: 'Active', created: 'May 9, 2025' },
+          { id: 5, name: 'Jane Holland', email: 'jane.holland@example.com', avatar: './assets/img/user7-128x128.jpg', role: 'Subscriber', status: 'Active', created: 'May 21, 2025' },
+          { id: 6, name: 'Kenneth Miles', email: 'kenneth.miles@example.com', avatar: './assets/img/user8-128x128.jpg', role: 'Author', status: 'Suspended', created: 'Jun 2, 2025' },
+          { id: 7, name: 'Nadia Carmichael', email: 'nadia.carmichael@example.com', avatar: './assets/img/user2-160x160.jpg', role: 'Subscriber', status: 'Active', created: 'Jun 15, 2025' },
+          { id: 8, name: 'Marcus Reed', email: 'marcus.reed@example.com', avatar: './assets/img/user5-128x128.jpg', role: 'Editor', status: 'Pending', created: 'Jun 24, 2025' },
+          { id: 9, name: 'Elena Weber', email: 'elena.weber@example.com', avatar: './assets/img/avatar5.png', role: 'Subscriber', status: 'Active', created: 'Jul 1, 2025' },      
+        ];
 
-      const users = [
-        { id: 1, name: 'Alexander Pierce', email: 'alexander.pierce@example.com', avatar: './assets/img/user1-128x128.jpg', role: 'Administrator', status: 'Active', created: 'Mar 12, 2025' },
-        { id: 2, name: 'Sarah Bullock', email: 'sarah.bullock@example.com', avatar: './assets/img/user3-128x128.jpg', role: 'Editor', status: 'Active', created: 'Apr 3, 2025' },
-        { id: 3, name: 'Daniel Mananta', email: 'daniel.cooper@example.com', avatar: './assets/img/user6-128x128.jpg', role: 'Author', status: 'Pending', created: 'Apr 28, 2025' },
-        { id: 4, name: 'Nora Vans', email: 'nora.vans@example.com', avatar: './assets/img/user4-128x128.jpg', role: 'Editor', status: 'Active', created: 'May 9, 2025' },
-        { id: 5, name: 'Jane Holland', email: 'jane.holland@example.com', avatar: './assets/img/user7-128x128.jpg', role: 'Subscriber', status: 'Active', created: 'May 21, 2025' },
-        { id: 6, name: 'Kenneth Miles', email: 'kenneth.miles@example.com', avatar: './assets/img/user8-128x128.jpg', role: 'Author', status: 'Suspended', created: 'Jun 2, 2025' },
-        { id: 7, name: 'Nadia Carmichael', email: 'nadia.carmichael@example.com', avatar: './assets/img/user2-160x160.jpg', role: 'Subscriber', status: 'Active', created: 'Jun 15, 2025' },
-        { id: 8, name: 'Marcus Reed', email: 'marcus.reed@example.com', avatar: './assets/img/user5-128x128.jpg', role: 'Editor', status: 'Pending', created: 'Jun 24, 2025' },
-        { id: 9, name: 'Elena Weber', email: 'elena.weber@example.com', avatar: './assets/img/avatar5.png', role: 'Subscriber', status: 'Active', created: 'Jul 1, 2025' },      
-      ];
+        const roleClasses = {
+          Administrator: 'text-bg-danger',
+          Editor: 'text-bg-primary',
+          Author: 'text-bg-info',
+          Subscriber: 'text-bg-secondary'
+        };
 
-      const roleClasses = {
-        Administrator: 'text-bg-danger',
-        Editor: 'text-bg-primary',
-        Author: 'text-bg-info',
-        Subscriber: 'text-bg-secondary'
-      };
+        const statusClasses = {
+          Active: 'text-bg-success',
+          Pending: 'text-bg-warning',
+          Suspended: 'text-bg-danger'
+        };
 
-      const statusClasses = {
-        Active: 'text-bg-success',
-        Pending: 'text-bg-warning',
-        Suspended: 'text-bg-danger'
-      };
+        import { HTMP } from 'https://unpkg.com/htm-projection/dist/esm/index.js';
 
-      const userTable = new HTMP('users-card-content', /* html */ `
-        <div>
-          <div class="card-body p-0">
-            <div class="table-responsive">
-          <p colspan="6" :style="filteredUsers.length === 0 ? 'display: block;' : 'display: none:'" >{{ filteredUsers.length === 0 ? 'No users found' : '' }}</p>
-          <table class="table table-hover align-middle m-0">
-            <thead>
-              <tr><th>User</th><th>Email</th><th>Role</th><th>Status</th><th>Created</th><th class="text-end">Actions</th></tr>
-            </thead>
-            <tbody>              
-              <tr :for="user in pagedUsers">
-                <td><div class="d-flex align-items-center"><img :src="user.avatar" alt="" class="img-size-32 rounded-circle me-2" /><span class="fw-medium">{{ user.name }}</span></div></td>
-                <td>{{ user.email }}</td>
-                <td><span :class="'badge ' + roleClass(user.role)">{{ user.role }}</span></td>
-                <td><span :class="'badge ' + statusClass(user.status)">{{ user.status }}</span></td>
-                <td>{{ user.created }}</td>
-                <td class="text-end">
-                  <div class="btn-group btn-group-sm">
-                    <button type="button" class="btn btn-outline-secondary" @click="editUser(user)" :aria-label="'Edit ' + user.name"><i class="bi bi-pencil" aria-hidden="true"></i></button>
-                    <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modal-delete-user" @click="selectUser(user)" :aria-label="'Delete ' + user.name"><i class="bi bi-trash" aria-hidden="true"></i></button>
-                  </div>
-                </td>                
-              </tr>              
-            </tbody>
-          </table>
-            </div>
-          </div>
-          <div class="card-footer clearfix">
-            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-              <div class="d-flex align-items-center gap-2">
-                <span class="fs-7 text-body-secondary">Showing {{ rangeStart }} to {{ rangeEnd }} of {{ totalUsers }} users</span>
-                <select class="form-select form-select-sm w-auto" aria-label="Users per page" @change="changePageSize(e)">
-                  <option :for="size in pageSizes" :value="size">{{ size }}</option>
-                </select>
-              </div>
-              <ul class="pagination pagination-sm m-0">
-                <li class="page-item" :class="page === 1 ? 'disabled' : ''">
-                  <button class="page-link" type="button" aria-label="Previous" @click="previousPage()">&laquo;</button>
-                </li>
-                <li class="page-item" :for="pageNumber in pages" :class="pageNumber === page ? 'active' : ''">
-                  <button class="page-link" type="button" @click="goToPage(pageNumber)">{{ pageNumber }}</button>
-                </li>
-                <li class="page-item" :class="page === pageCount ? 'disabled' : ''">
-                  <button class="page-link" type="button" aria-label="Next" @click="nextPage()">&raquo;</button>
-                </li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      `);      
-      userTable.setProxy({
+        // 1. Ambil string HTML dari dalam tag <template>
+        const templateEl = document.getElementById('page-template');
+        const templateString = templateEl.innerHTML;
+		    console.log(templateString);
+
+        // 2. Inisialisasi mesin HTMP dengan template tersebut
+        const app = new HTMP('app', templateString);
+
+        app.setProxy({
         users,
         filteredUsers: users.slice(),
         pagedUsers: users.slice(0, 10),
@@ -1529,59 +1536,62 @@
         statusClass: (status) => statusClasses[status] || 'text-bg-secondary'
       });
 
-      userTable.setProgram({
-        searchUsers: (event) => { userTable.proxy.search = event.target.value; applyFilters(); },
-        filterByRole: (event) => { userTable.proxy.roleFilter = event.target.value; applyFilters(); },
+      app.setProgram({
+        searchUsers: (event) => { app.proxy.search = event.target.value; applyFilters(); },
+        filterByRole: (event) => { app.proxy.roleFilter = event.target.value; applyFilters(); },
         editUser: (user) => window.alert(`Edit user: ${user.name}`),
-        selectUser: (user) => { userTable.proxy.selectedUser = user; },
+        selectUser: (user) => { app.proxy.selectedUser = user; },
         changePageSize: (event) => {
-          userTable.proxy.pageSize = Number(event.target.value);
-          userTable.proxy.page = 1;
+          app.proxy.pageSize = Number(event.target.value);
+          app.proxy.page = 1;
           updatePagination();
         },
         goToPage: (page) => {
-          userTable.proxy.page = page;
+          app.proxy.page = page;
           updatePagination();
         },
         previousPage: () => {
-          if (userTable.proxy.page > 1) userTable.proxy.page--;
+          if (app.proxy.page > 1) app.proxy.page--;
           updatePagination();
         },
         nextPage: () => {
-          if (userTable.proxy.page < userTable.proxy.pageCount) userTable.proxy.page++;
+          if (app.proxy.page < app.proxy.pageCount) app.proxy.page++;
           updatePagination();
         }
       });
 
       function applyFilters() {
-        const search = userTable.proxy.search.trim().toLowerCase();
-        const role = userTable.proxy.roleFilter;
-        userTable.proxy.filteredUsers = userTable.proxy.users.filter((user) => {
+        const search = app.proxy.search.trim().toLowerCase();
+        const role = app.proxy.roleFilter;
+        app.proxy.filteredUsers = app.proxy.users.filter((user) => {
           const matchesSearch = !search || `${user.name} ${user.email}`.toLowerCase().includes(search);
           return matchesSearch && (role === 'all' || user.role.toLowerCase() === role);
         });
-        userTable.proxy.page = 1;
+        app.proxy.page = 1;
         updatePagination();
       }
 
       function updatePagination() {
-        const total = userTable.proxy.filteredUsers.length;
-        const pageCount = Math.max(1, Math.ceil(total / userTable.proxy.pageSize));
-        userTable.proxy.totalUsers = total;
-        userTable.proxy.pageCount = pageCount;
-        userTable.proxy.page = Math.min(userTable.proxy.page, pageCount);
-        userTable.proxy.pages = Array.from({ length: pageCount }, (_, index) => index + 1);
-        userTable.proxy.rangeStart = total === 0 ? 0 : (userTable.proxy.page - 1) * userTable.proxy.pageSize + 1;
-        userTable.proxy.rangeEnd = Math.min(userTable.proxy.page * userTable.proxy.pageSize, total);
-        const start = (userTable.proxy.page - 1) * userTable.proxy.pageSize;
-        userTable.proxy.pagedUsers = userTable.proxy.filteredUsers.slice(start, start + userTable.proxy.pageSize);
-      }
-
-      document.getElementById('user-search').addEventListener('input', (event) => userTable.programs.searchUsers(event));      
-      document.getElementById('user-role-filter').addEventListener('change', (event) => userTable.programs.filterByRole(event));
-
-      userTable.mount();
+        const total = app.proxy.filteredUsers.length;
+        const pageCount = Math.max(1, Math.ceil(total / app.proxy.pageSize));
+        app.proxy.totalUsers = total;
+        app.proxy.pageCount = pageCount;
+        app.proxy.page = Math.min(app.proxy.page, pageCount);
+        app.proxy.pages = Array.from({ length: pageCount }, (_, index) => index + 1);
+        app.proxy.rangeStart = total === 0 ? 0 : (app.proxy.page - 1) * app.proxy.pageSize + 1;
+        app.proxy.rangeEnd = Math.min(app.proxy.page * app.proxy.pageSize, total);
+        const start = (app.proxy.page - 1) * app.proxy.pageSize;
+        app.proxy.pagedUsers = app.proxy.filteredUsers.slice(start, start + app.proxy.pageSize);
+      }      
+        // 5. Hapus tag <template> dari DOM asli
+        templateEl.remove();	
+        // 6. Langsung mount ke body! (Tidak perlu unmount/remount)
+        // Karena ini adalah 1 halaman penuh yang utuh.
+        app.mount('app');
+        document.getElementById('user-search').addEventListener('input', (event) => app.programs.searchUsers(event));      
+        document.getElementById('user-role-filter').addEventListener('change', (event) => app.programs.filterByRole(event));
     </script>
+    <!--end::Script-->    
   </body>
   <!--end::Body-->
 </html>
