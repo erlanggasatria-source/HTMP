@@ -4,6 +4,34 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project adheres to Semantic Versioning.
 
+## [1.2.0] - 2026-09-25
+
+### ✨ Added
+
+- **Global Expression Evaluator (`evalExpr`)**.
+  The engine now supports complex JavaScript expressions natively inside `{{ }}` and `:` bindings, both inside and outside `:for` loops.
+
+  - **Math & Methods**: You can now write `{{ (item.price * item.qty).toLocaleString('id-ID') }}` directly in your HTML.
+  - **Nested Ternaries**: Complex conditionals like `{{ qty > 0 ? (qty > 5 ? 'Bulk' : 'Limited') : 'Empty' }}` are fully supported without needing `:if` or `v-if` directives.
+
+- **Proxy Helper (Computed Properties)**.
+  You can now register pure functions inside `setProxy()` and call them directly in your templates (e.g., `{{ formatRP(totalPrice) }}`). This completely replaces the need for `useMemo` (React) or `computed()` (Vue).
+
+### 🐛 Fixed
+
+- **Prototype Pollution Crash**.
+  Fixed a critical `Uncaught TypeError: this.registry[t].push is not a function` error. This occurred when expressions used native Object methods like `toLocaleString` or `toString`, causing key collisions in the Registry. The Registry is now initialized using `Object.create(null)` to ensure a pure, prototype-less dictionary.
+
+- **False Positive DX Warnings**.
+  Cleaned up `[HTMP Warn]` messages during `mount()`. Native JavaScript globals and Object methods are no longer mistakenly flagged as unregistered proxy variables.
+
+### ⚡ Performance & Refactor
+
+- **Unified Expression Evaluation**.
+  Unified the expression evaluation logic for both root elements and `:for` loop items into a single, optimized `evalExpr` function, reducing code duplication and slightly improving execution speed.
+
+- **Bundle Size**: Increased slightly from 3.6 kB to 3.7 kB (minified + gzipped) due to the enhanced evaluator logic. Still ultra-lightweight!
+
 ## [1.1.0] - 2026-09-20
 
 ### ✨ Added

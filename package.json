@@ -1,6 +1,6 @@
 {
   "name": "htm-projection",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Reactive HTML with 3 pillars: pattern parser, proxy, and programs. Browser-native API, lightweight reactive projection. Ready for widgets or SPA. A different approach from virtual DOM with fine-grained reactivity — slot-ready even with empty initial state.",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",
@@ -39,7 +39,7 @@
   ],
   "author": "Erlangga Satria",
   "license": "MIT",
-  "homepage": "https://github.com/erlanggasatria-source/HTMP#readme",
+  "homepage": "https://htmpjs.com",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/erlanggasatria-source/HTMP.git"

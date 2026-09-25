@@ -45,7 +45,7 @@ Pattern → Parser → Proxy → Program → Precision Projection
 
 ## ✨ Core Advantages
 
-- **Ultra-lightweight (~3.6 KB min zip):** zero dependencies. Drop it into any project via npm or a single `<script>` tag from a CDN.
+- **Ultra-lightweight (~3.7 KB min zip):** zero dependencies. Drop it into any project via npm or a single `<script>` tag from a CDN.
 - **Friendly guest (embeddable):** non-invasive. It does not demand ownership of the entire `<body>`. You can embed HTMP in a specific `div` inside WordPress, jQuery apps, or even inside React/Vue components without causing DOM mutation conflicts.
 - **SPA ready:** equipped with complete lifecycle controls (`mount`, `unmount`, `remount`, `destroy`). Pair it with the native browser Navigation API to build a full single-page application without a heavy router library.
 - **Slot-based rendering:** say goodbye to `if` conditionals used to prevent rendering errors. If data is `null` or `[]`, the slot simply remains empty. When data arrives, the Proxy fills the exact slot instantly. The template remains a pure, declarative projection of your state.
@@ -53,15 +53,15 @@ Pattern → Parser → Proxy → Program → Precision Projection
 
 ---
 
-## 📦 Verified Bundle Size v1.1.0
+## 📦 Verified Bundle Size v1.2.0
 
 [![BundlePhobia](https://badgen.net/bundlephobia/minzip/htm-projection)](https://bundlephobia.com/package/htm-projection)
 
 | Metric | Value |
 | :--- | :--- |
-| Bundle Size (Minified) | **10.4 kB** |
-| **Minified + Gzipped** | **3.6 kB** |
-| Download (Slow 3G) | **72 ms** |
+| Bundle Size (Minified) | **10.7 kB** |
+| **Minified + Gzipped** | **3.7 kB** |
+| Download (Slow 3G) | **74 ms** |
 | Download (Emerging 4G) | **4 ms** |
 
 > Verified independently by [BundlePhobia](https://bundlephobia.com/package/htm-projection).

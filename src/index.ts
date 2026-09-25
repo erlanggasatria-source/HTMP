@@ -33,7 +33,6 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
   private pendingDiff: Set<string>;
   public isMounted: boolean;
   
-  // Counter untuk generate unique ID marker
   private _htmpIdCounter: number = 0;
 
   private hooks: {
@@ -53,7 +52,7 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
     }
 
     this.programs = {};
-    this.registry = {};
+    this.registry = Object.create(null) as Record<string, HtmpBinding[]>;
     this.pendingDiff = new Set<string>();
     this.isMounted = false;
     
@@ -139,7 +138,6 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
         
         if (rootKeys.size === 0) rootKeys.add(expr);
         
-        // Generate ID sekali per Text Node
         const htmpId = this._htmpIdCounter++;
         (node as any)._htmp = htmpId;
 
@@ -151,17 +149,16 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
             rawText,
             rawMatch,
             expr,
-            _htmpId: htmpId // Simpan ID ke registry
+            _htmpId: htmpId
           });
         });
       }
     }
     
-        if (node.nodeType === Node.ELEMENT_NODE) {
+    if (node.nodeType === Node.ELEMENT_NODE) {
       let isListTemplate = false;
       let loopItemName = '';
       
-      // === 1. PRE-SCAN: Cek apakah elemen ini adalah :for ===
       for (const attr of Array.from((node as Element).attributes)) {
         if (attr.name === ':for') {
           const m = attr.value.match(/(\w+)\s+in\s+(.*)/);
@@ -170,12 +167,10 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
         }
       }
 
-      // Generate ID sekali per Element Node
       const htmpId = this._htmpIdCounter++;
       (node as Element as any)._htmp = htmpId;
 
       for (const attr of Array.from((node as Element).attributes)) {
-        // 1. Event Binding (@click, @input)
         if (attr.name.startsWith('@')) {
           if (!isListTemplate) {
             const eventName = attr.name.slice(1);
@@ -209,7 +204,6 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
           }
           (node as Element).removeAttribute(attr.name);
         }
-        // 2. Attribute Binding (:class, :value, dll)
         else if (attr.name.startsWith(':') && attr.name !== ':for') {
           if (!isListTemplate) {
             const realAttrName = attr.name.slice(1);
@@ -234,7 +228,6 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
           }
           (node as Element).removeAttribute(attr.name);
         }
-        // 3. List Rendering (:for)
         else if (attr.name === ':for') {
           const match = attr.value.match(/(\w+)\s+in\s+(.*)/);
           if (match) {
@@ -262,7 +255,7 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
               
               const nestedForMatches = [...innerHTML.matchAll(/:for="(\w+)\s+in\s+.*?"/g)];
               const nestedItemNames = new Set(nestedForMatches.map(m => m[1]));
-              nestedItemNames.add(itemName); // Masukkan juga nama item induk
+              nestedItemNames.add(itemName);
               
               const regexText = /\{\{\s*(.*?)\s*\}\}/g;
               const regexAttr = /:(?!for)\w+="([^"]+)"/g;
@@ -307,10 +300,8 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
   private resolveNode(key: string, binding: HtmpBinding): Node | null {
     if (!this.dom) return null;
     
-    // 1. Fast Path: Cek berdasarkan path di registry
     let targetNode: Node | null = this.dom;
     
-    // Pastikan binding memiliki path (TextBinding & AttributeBinding punya path, ListBinding tidak)
     if ('path' in binding && binding.path) {
       for (const index of binding.path) {
         if (targetNode && targetNode.childNodes[index]) {
@@ -321,20 +312,16 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
         }
       }
 
-      // 2. Validasi: Apakah node di path ini benar node reaktif kita?
       if (targetNode && (targetNode as any)._htmp === binding._htmpId) {
-        return targetNode; // ✅ MATCH: DOM sehat
+        return targetNode;
       }
     }
 
-    // 3. Fallback Path: Mismatch! DOM bergeser/rusak.
     if (binding._htmpId !== undefined) {
       const foundNode = this.findNodeByHtmpId(this.dom, binding._htmpId);
 
       if (foundNode) {
-        // 🔄 SELF-HEALING: Hitung path baru dan update registry
         const newPath = this.getRelativeDOMPath(foundNode, this.dom);
-        // Hanya update path jika binding memang seharusnya punya path
         if ('path' in binding) {
           binding.path = newPath;
         }
@@ -343,7 +330,6 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
       }
     }
 
-    // ⚠️ DELETION: Node sama sekali tidak ketemu di dalam this.dom
     console.warn(`[HTMP Warn] Reactive node ID ${binding._htmpId} not found. Removed from registry.`);
     this.removeBinding(key, binding);
     return null;
@@ -365,7 +351,6 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
     const path: number[] = [];
     let current: Node | null = target;
     
-    // Traverse dari target naik ke atas sampai ketemu root
     while (current !== null && current !== root) {
       const parent: Node | null = current.parentNode;
       if (parent === null) break;
@@ -391,7 +376,6 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
     
     this.pendingDiff.forEach((key: string) => {
       if (this.registry[key]) {
-        // Clone array agar aman jika ada penghapusan binding saat iterasi
         [...this.registry[key]].forEach((binding: HtmpBinding) => {
           if (binding.type === 'list') this.renderList(binding);
           else if (binding.type === 'text') this.renderText(key, binding);
@@ -402,7 +386,45 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
     this.pendingDiff.clear();
   }
 
-  // Parameter diubah: key ditambahkan untuk keperluan cleanup registry
+  // === GLOBAL EXPRESSION EVALUATOR (v1.2.0) ===
+  // expresion pure JavaScript in {{ }} atau :
+  private evalExpr(expr: string, proxyKeys: string[], itemName?: string, item?: any, parentItemName?: string, parentItem?: any): any {
+    const strings: string[] = [];
+    // Masking string literal agar tidak rusak oleh regex
+    let maskedExpr = expr.replace(/'[^']*'|"[^"]*"/g, (match) => {
+      strings.push(match);
+      return `__STR_${strings.length - 1}__`;
+    });
+
+    let finalExpr = maskedExpr;
+        
+    proxyKeys.forEach(k => {
+      finalExpr = finalExpr.replace(new RegExp(`(?<![\\w.])${k}\\b`, 'g'), `proxy.${k}`);
+    });
+    
+    if (itemName && item !== undefined) {
+      finalExpr = finalExpr.replace(new RegExp(`(?<![\\w.])${itemName}\\b`, 'g'), 'item');
+    }
+    
+    if (parentItemName && parentItem !== undefined) {
+      finalExpr = finalExpr.replace(new RegExp(`(?<![\\w.])${parentItemName}\\b`, 'g'), 'parentItem');
+    }
+    
+    finalExpr = finalExpr.replace(/__STR_(\d+)__/g, (_m, idx) => strings[parseInt(idx)]);
+
+    try {
+      if (item !== undefined) {
+        const func = new Function('proxy', 'item', 'parentItem', `return ${finalExpr};`);
+        return func(this.proxy, item, parentItem);
+      } else {
+        const func = new Function('proxy', `return ${finalExpr};`);
+        return func(this.proxy);
+      }
+    } catch(e) {     
+      return undefined; 
+    }
+  }
+
   renderText(key: string, binding: Extract<HtmpBinding, { type: 'text' }>): void {
     const targetNode = this.resolveNode(key, binding);
     if (!targetNode || targetNode.nodeType !== Node.TEXT_NODE) return;
@@ -410,14 +432,11 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
     const textNode = targetNode as Text;
     const rawText = binding.rawText;
     
+    const proxyKeys = Object.keys(this.proxy);
+    
     const newText = rawText.replace(/\{\{\s*(.*?)\s*\}\}/g, (_match: string, expr: string) => {
-      let val: unknown;
-      try {
-        const func = new Function('proxy', `return proxy.${expr};`);
-        val = func(this.proxy);
-      } catch(e) { 
-        val = ''; 
-      }
+      // Gunakan evalExpr universal
+      const val = this.evalExpr(expr, proxyKeys);
       return val !== undefined && val !== null ? String(val) : '';
     });
     
@@ -431,11 +450,10 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
     if (!targetNode || targetNode.nodeType !== Node.ELEMENT_NODE) return;
     
     const el = targetNode as Element;
-    let val: unknown;
-    try {
-      const func = new Function('proxy', `return proxy.${binding.attrExpr};`);
-      val = func(this.proxy);
-    } catch(e) { val = undefined; }
+    const proxyKeys = Object.keys(this.proxy);
+    
+    // Gunakan evalExpr universal
+    let val = this.evalExpr(binding.attrExpr, proxyKeys);
     
     const realAttrName = binding.attrName;
     const strVal = String(val);
@@ -480,35 +498,6 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
 
     const proxyKeys = Object.keys(this.proxy);
         
-    const evalInLoop = (expr: string, item: unknown): unknown => {
-      const strings: string[] = [];
-      let maskedExpr = expr.replace(/'[^']*'|"[^"]*"/g, (match) => {
-        strings.push(match);
-        return `__STR_${strings.length - 1}__`;
-      });
-
-      let finalExpr = maskedExpr;        
-      finalExpr = finalExpr.replace(new RegExp(`(?<![\\w.])${itemName}\\b`, 'g'), 'item');
-            
-      if (parentItem && parentItemName) {
-        finalExpr = finalExpr.replace(new RegExp(`(?<![\\w.])${parentItemName}\\b`, 'g'), 'parentItem');
-      }
-            
-      proxyKeys.forEach(k => {
-        finalExpr = finalExpr.replace(new RegExp(`(?<![\\w.])${k}\\b`, 'g'), `proxy.${k}`);
-      });
-      
-      finalExpr = finalExpr.replace(/__STR_(\d+)__/g, (_m, idx) => strings[parseInt(idx)]);
-
-      try {
-        const func = new Function('proxy', 'item', 'parentItem', `return ${finalExpr};`);
-        return func(this.proxy, item, parentItem);
-      } catch(e) { 
-        console.error("Eval error in loop:", e, finalExpr); 
-        return undefined; 
-      }
-    };
-
     items.forEach((item: unknown, index: number) => {
       const itemRecord = typeof item === 'object' && item !== null ? item as Record<string, unknown> : null;
       const itemKey = itemRecord?.id !== undefined ? itemRecord.id : index;
@@ -521,9 +510,9 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
         childNode = freshTemplate.cloneNode(true) as HTMLElement;
         childNode.id = domId;
         actualParent.appendChild(childNode);
-        this.processListItem(childNode, freshTemplate, item, itemName, evalInLoop, true, parentItem, parentItemName);
+        this.processListItem(childNode, freshTemplate, item, itemName, proxyKeys, true, parentItem, parentItemName);
       } else {
-        this.processListItem(childNode, freshTemplate, item, itemName, evalInLoop, false, parentItem, parentItemName);
+        this.processListItem(childNode, freshTemplate, item, itemName, proxyKeys, false, parentItem, parentItemName);
       }
     });
     
@@ -535,12 +524,12 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
     }
   }
 
-    processListItem(
+  processListItem(
     clonedNode: Node, 
     templateNode: Node, 
     item: unknown, 
     itemName: string, 
-    evalInLoop: (expr: string, item: unknown) => unknown,
+    proxyKeys: string[],
     isFirstRender: boolean,
     parentItem?: unknown,
     parentItemName?: string
@@ -550,7 +539,8 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
       const cNode = clonedNode as Text;
       const rawText = tNode.nodeValue || '';
       const newVal = rawText.replace(/\{\{\s*(.*?)\s*\}\}/g, (_match, expr) => {
-        const val = evalInLoop(expr, item);
+        // Gunakan evalExpr dengan parameter item & parentItem
+        const val = this.evalExpr(expr, proxyKeys, itemName, item, parentItemName, parentItem);
         return val !== undefined && val !== null ? String(val) : '';
       });
       if (cNode.nodeValue !== newVal) {
@@ -575,7 +565,8 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
               );
             }
             
-            let childItems = evalInLoop(innerListExpr, item);
+            // Evaluasi array anak menggunakan evalExpr
+            let childItems = this.evalExpr(innerListExpr, proxyKeys, itemName, item, parentItemName, parentItem);
             if (!Array.isArray(childItems)) {
               childItems = [];
             }
@@ -622,7 +613,7 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
                   }
                   if (!isNaN(Number(token))) return Number(token);
                   if (typeof itemName !== 'undefined' && token === itemName) return item;
-                  if (typeof parentItemName !== 'undefined' && token === parentItemName) return parentItem; // Akses parent di event handler
+                  if (typeof parentItemName !== 'undefined' && token === parentItemName) return parentItem;
                   return token;
                 });
                 this.programs[programName](...finalArgs);
@@ -641,7 +632,9 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
         else if (attr.name.startsWith(':')) {
           const realAttrName = attr.name.slice(1);
           const expr = attr.value;
-          const val = evalInLoop(expr, item);
+          
+          // Gunakan evalExpr untuk evaluasi atribut di dalam loop
+          const val = this.evalExpr(expr, proxyKeys, itemName, item, parentItemName, parentItem);
 
           if (realAttrName === 'value' && (cEl.tagName === 'INPUT' || cEl.tagName === 'TEXTAREA' || cEl.tagName === 'SELECT')) {
             const strVal = String(val);
@@ -672,12 +665,11 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
         }
       }
 
-      // Rekursi ke anak-anak elemen saat ini
       const cChildren = Array.from(cEl.childNodes);
       const tChildren = Array.from(tEl.childNodes);
       for (let i = 0; i < cChildren.length; i++) {
         if (tChildren[i]) {
-          this.processListItem(cChildren[i], tChildren[i], item, itemName, evalInLoop, isFirstRender, parentItem, parentItemName);
+          this.processListItem(cChildren[i], tChildren[i], item, itemName, proxyKeys, isFirstRender, parentItem, parentItemName);
         }
       }
     }
@@ -700,12 +692,18 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
       
       const registeredKeys = Object.keys(this.registry);
       const proxyKeys = Object.keys(this.proxy);
+            
+      const nativeGlobals = new Set([
+        ...Object.getOwnPropertyNames(window),
+        ...Object.getOwnPropertyNames(Object.prototype),
+        'toLocaleString', 'toFixed', 'toString', 'parseInt', 'parseFloat', 'Math', 'Date', 'JSON', 'gt', 'lt' // Tambahkan jika perlu
+      ]);
       
-      registeredKeys.forEach(key => {
-        if (!proxyKeys.includes(key)) {
+      registeredKeys.forEach(key => {        
+        if (!proxyKeys.includes(key) && !nativeGlobals.has(key)) {
           console.warn(`[HTMP Warn] Variabel "${key}" use in template, but proxy not.`);
         }
-      });
+      });      
 
       this.renderDiff();
       this.hooks.mount.forEach(fn => fn());
@@ -737,7 +735,7 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
     }
   }
 
-    destroy() {
+  destroy() {
     this.unmount();
     
     if (this.dom) {

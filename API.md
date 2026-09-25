@@ -40,7 +40,7 @@ import HTMP from 'htm-projection';
 ### Via CDN (Browser):
 
 ```js
-<script type="module" src="https://cdn.jsdelivr.net/npm/htm-projection@latest/+esm"></script>
+<script type="module" src="https://cdn.jsdelivr.net/npm/htm-projection@v1.1.0/+esm"></script>
 ```
 
 ## Quick Start
