@@ -228,60 +228,56 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
           }
           (node as Element).removeAttribute(attr.name);
         }
-        else if (attr.name === ':for') {
+                else if (attr.name === ':for') {
           const match = attr.value.match(/(\w+)\s+in\s+(.*)/);
           if (match) {
             const itemName = match[1];
             const listExpr = match[2].trim();
             
-            const isRootList = /^[\w$]+$/.test(listExpr);
+            // FIX: Gunakan outerHTML (bukan innerHTML) agar void elements seperti <img> tertangkap!
+            const originalHTML = (node as Element).outerHTML;
             
-            if (isRootList) {
-              const listKey = listExpr;
-              const originalHTML = (node as Element).outerHTML;
-              const innerHTML = (node as Element).innerHTML;
-              
-              const listBinding: ListBinding = {
-                type: 'list',
-                templateNode: node as Element,
-                parentEl: node.parentNode as Element,
-                itemName,
-                listKey,
-                originalHTML
-              };
-              
-              if (!this.registry[listKey]) this.registry[listKey] = [];
-              this.registry[listKey].push(listBinding);
-              
-              const nestedForMatches = [...innerHTML.matchAll(/:for="(\w+)\s+in\s+.*?"/g)];
-              const nestedItemNames = new Set(nestedForMatches.map(m => m[1]));
-              nestedItemNames.add(itemName);
-              
-              const regexText = /\{\{\s*(.*?)\s*\}\}/g;
-              const regexAttr = /:(?!for)\w+="([^"]+)"/g;
-              const allExprs: string[] = [];
-              let m;
-              
-              while ((m = regexText.exec(innerHTML)) !== null) allExprs.push(m[1]);
-              while ((m = regexAttr.exec(innerHTML)) !== null) allExprs.push(m[1]);
-              
-              const rootKeysInLoop = new Set<string>();
-              allExprs.forEach(expr => {
-                 const cleanExpr = expr.replace(/'[^']*'|"[^"]*"/g, '');
-                 const vars = cleanExpr.match(/[a-zA-Z_][a-zA-Z0-9_.]*/g) || [];
-                 vars.forEach(v => {
-                   const rootKey = v.split('.')[0];
-                   if (!nestedItemNames.has(rootKey)) {
-                     rootKeysInLoop.add(rootKey);
-                   }
-                 });
-              });
+            const listBinding: ListBinding = {
+              type: 'list',
+              templateNode: node as Element,
+              parentEl: node.parentNode as Element,
+              itemName,
+              listKey: listExpr, 
+              originalHTML
+            };
+            
+            const rootKey = listExpr.split('.')[0];
+            if (!this.registry[rootKey]) this.registry[rootKey] = [];
+            this.registry[rootKey].push(listBinding);
+            
+            const nestedForMatches = [...originalHTML.matchAll(/:for="(\w+)\s+in\s+.*?"/g)];
+            const nestedItemNames = new Set(nestedForMatches.map(m => m[1]));
+            nestedItemNames.add(itemName);
+            
+            const regexText = /\{\{\s*(.*?)\s*\}\}/g;
+            const regexAttr = /:(?!for)\w+="([^"]+)"/g;
+            const allExprs: string[] = [];
+            let m;
+            
+            while ((m = regexText.exec(originalHTML)) !== null) allExprs.push(m[1]);
+            while ((m = regexAttr.exec(originalHTML)) !== null) allExprs.push(m[1]);
+            
+            const rootKeysInLoop = new Set<string>();
+            allExprs.forEach(expr => {
+               const cleanExpr = expr.replace(/'[^']*'|"[^"]*"/g, '');
+               const vars = cleanExpr.match(/[a-zA-Z_][a-zA-Z0-9_.]*/g) || [];
+               vars.forEach(v => {
+                 const rk = v.split('.')[0];
+                 if (!nestedItemNames.has(rk)) {
+                   rootKeysInLoop.add(rk);
+                 }
+               });
+            });
 
-              rootKeysInLoop.forEach(key => {
-                if (!this.registry[key]) this.registry[key] = [];
-                this.registry[key].push(listBinding);
-              });
-            }
+            rootKeysInLoop.forEach(key => {
+              if (!this.registry[key]) this.registry[key] = [];
+              this.registry[key].push(listBinding);
+            });
             
             (node as Element).removeAttribute(':for');
             isListTemplate = true; 
@@ -482,8 +478,23 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
     }
   }
 
-  renderList(binding: ListBinding, explicitItems?: unknown[], parentItem?: unknown, parentItemName?: string): void {
-    const items = explicitItems || (Array.isArray(this.proxy[binding.listKey]) ? this.proxy[binding.listKey] as unknown[] : []);
+    renderList(binding: ListBinding, explicitItems?: unknown[], parentItem?: unknown, parentItemName?: string): void {
+    // 1. FIX NESTED PROPERTY: Baca "product.images" secara berlapis
+    let items = explicitItems;
+    if (!items) {
+      let val;
+      if (binding.listKey.includes('.')) {
+        const parts = binding.listKey.split('.');
+        val = this.proxy;
+        for (const part of parts) {
+          val = val?.[part];
+        }
+      } else {
+        val = this.proxy[binding.listKey];
+      }
+      items = Array.isArray(val) ? val : [];
+    }
+
     const { templateNode, parentEl, itemName, originalHTML } = binding; 
     if (!parentEl) return;
     
@@ -497,11 +508,15 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
     freshTemplate.removeAttribute(':for');    
 
     const proxyKeys = Object.keys(this.proxy);
+    
+    // 2. PINDAHKAN KE SINI: Agar bisa diakses oleh forEach dan for-loop di bawah
+    const safeListKey = binding.listKey.replace(/\./g, '-');
         
     items.forEach((item: unknown, index: number) => {
       const itemRecord = typeof item === 'object' && item !== null ? item as Record<string, unknown> : null;
       const itemKey = itemRecord?.id !== undefined ? itemRecord.id : index;
-      const domId = `${binding.listKey}-${itemKey}`;
+      
+      const domId = `${safeListKey}-${itemKey}`;
       newKeys.add(domId);
 
       let childNode = actualParent.querySelector(`#${domId}`) as HTMLElement | null;
@@ -517,8 +532,8 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
     });
     
     for (let i = actualParent.children.length - 1; i >= 0; i--) {
-      const node = actualParent.children[i];
-      if (node.id.startsWith(`${binding.listKey}-`) && !newKeys.has(node.id)) {
+      const node = actualParent.children[i] as HTMLElement;
+      if (node.id && node.id.startsWith(`${safeListKey}-`) && !newKeys.has(node.id)) {
         actualParent.removeChild(node);
       }
     }

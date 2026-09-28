@@ -4,6 +4,31 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project adheres to Semantic Versioning.
 
+## [1.2.1] - 2026-09-28
+
+### ✨ Added
+
+- **Cross-Dependency Registration in Loops**.
+  The compiler now automatically detects reactive variables used inside `:for` blocks (e.g., `activeImage` inside `:class="activeImage === img.url ? '...' : ''"`). The `ListBinding` is now registered to those external root keys, meaning changing `proxy.activeImage` will automatically trigger a surgical re-evaluation of the loop's attributes without requiring manual array re-assignment or Vanilla JS hacks.
+
+### 🐛 Fixed
+
+- **DOM Duplication on Nested Loops**.
+  Fixed a critical bug where elements inside a `:for` loop (especially with nested properties like `product.images`) were duplicated indefinitely on state updates. Dynamic DOM IDs are now sanitized by replacing dots (`.`) with dashes (`-`), ensuring `querySelector` reliably finds and patches existing elements instead of appending new ones.
+
+- **Void Elements Attribute Binding**.
+  Fixed an issue where attributes (`:class`, `:src`, etc.) on void elements (like `<img>`) inside a `:for` loop were ignored during compilation. The compiler now scans `outerHTML` instead of `innerHTML` to capture bindings on self-closing tags without requiring a `<div>` wrapper.
+
+- **Nested Property Evaluation in renderList**.
+  Fixed `renderList` failing to retrieve array data when using nested paths (e.g., `:for="img in product.images"`). The engine now correctly traverses the Proxy object tree to resolve nested array references.
+
+- **Prototype Pollution Crash**.
+  Fixed a fatal `TypeError: ... push is not a function` crash that occurred when expressions used native Object prototype methods (like `toLocaleString`). The Registry Map is now initialized using `Object.create(null)` to ensure a pure, prototype-less dictionary, eliminating key collisions.
+
+### ⚡ Performance
+
+- **Bundle Size**: Increased slightly from 3.7 KB to 3.8 KB (Minified + Gzipped) due to enhanced traversal logic and cross-dependency tracking in the Registry Map compiler.
+
 ## [1.2.0] - 2026-09-25
 
 ### ✨ Added
