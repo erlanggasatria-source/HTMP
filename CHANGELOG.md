@@ -4,6 +4,28 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project adheres to Semantic Versioning.
 
+## [1.2.2] - 2026-10-01
+
+### ✨ Added
+
+- **Class & Style Attribute Merging**.
+  Implemented native attribute merging for `class` and `style`. Developers can now use static HTML attributes (e.g., `class="btn"`) alongside reactive bindings (e.g., `:class="isActive ? 'btn-active' : ''"`). The engine automatically merges them at runtime without overwriting the static base, preventing redundant class declarations and CSS conflicts.
+
+- **Informative Diagnostics**.
+  Enhanced the `console.warn` and `console.info` outputs in the Self-Healing Registry. When a reactive node is not found or its path is corrected, the console now explicitly prints the Proxy Key and the Expression/Attribute binding (e.g., `[HTMP Warn] Reactive node ID 43 | Proxy Key: "activeImage" | Expr: "{{ activeImage }}" not found.`), making debugging significantly easier.
+
+### 🐛 Fixed
+
+- **Multiple `{{ }}` Expressions in a Single Text Node**.
+  Fixed a critical bug where multiple reactive expressions inside one text node (e.g., `Count: {{ count }} of {{ total }}`) would cause ID collisions. The compiler previously overwrote the `_htmp` marker for each expression, causing the engine to lose track of the text node and drop bindings from the registry. The compiler now assigns a single shared ID per text node, ensuring all expressions are evaluated and updated correctly.
+
+- **DOM Shift on `:for` Siblings**.
+  Fixed an issue where removing a `:for` template element during `mount()` caused the DOM index (Path) of its sibling elements to shift, triggering false "Node not found" warnings and self healing. Template elements are now replaced with an empty Text Node placeholder during compilation, preserving the structural integrity and index paths of the surrounding DOM.
+
+### ⚡ Performance
+
+- **Bundle Size**: 11.7 kB minified / 3.9 kB gzipped (tradeoff: +0.1 kB gzipped).
+
 ## [1.2.1] - 2026-09-28
 
 ### ✨ Added

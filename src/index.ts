@@ -128,6 +128,10 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
       const regex = /\{\{\s*(.*?)\s*\}\}/g;
       const rawText = node.nodeValue || '';
       let match;
+            
+      const htmpId = this._htmpIdCounter++;
+      (node as any)._htmp = htmpId;
+
       while ((match = regex.exec(rawText)) !== null) {
         const expr = match[1];
         const rawMatch = match[0];
@@ -138,9 +142,6 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
         
         if (rootKeys.size === 0) rootKeys.add(expr);
         
-        const htmpId = this._htmpIdCounter++;
-        (node as any)._htmp = htmpId;
-
         rootKeys.forEach(key => {
           if (!this.registry[key]) this.registry[key] = [];
           this.registry[key].push({
@@ -222,13 +223,14 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
                 path: [...currentPath],
                 attrName: realAttrName,
                 attrExpr: expr,
+                staticAttrValue: (node as Element).getAttribute(realAttrName) || '',
                 _htmpId: htmpId
               });
             });
           }
           (node as Element).removeAttribute(attr.name);
         }
-                else if (attr.name === ':for') {
+          else if (attr.name === ':for') {
           const match = attr.value.match(/(\w+)\s+in\s+(.*)/);
           if (match) {
             const itemName = match[1];
@@ -280,6 +282,8 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
             });
             
             (node as Element).removeAttribute(':for');
+            const placeholder = document.createTextNode('');
+            (node as Element).parentNode!.replaceChild(placeholder, node as Element);
             isListTemplate = true; 
           }
         }
@@ -320,13 +324,28 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
         const newPath = this.getRelativeDOMPath(foundNode, this.dom);
         if ('path' in binding) {
           binding.path = newPath;
+        }        
+        let healDetail = '';
+        if (binding.type === 'text') {
+          healDetail = ` | Proxy Key: "${key}" | Expr: "{{ ${binding.expr} }}"`;
+        } else if (binding.type === 'attribute') {
+          healDetail = ` | Proxy Key: "${key}" | Attr: :${binding.attrName}="${binding.attrExpr}"`;
         }
-        console.info(`[HTMP] Self-healing: Path corrected for ID ${binding._htmpId}`);
+        
+        console.info(`[HTMP] Self-healing: Path corrected for ID ${binding._htmpId}${healDetail}`);
         return foundNode;
       }
     }
 
-    console.warn(`[HTMP Warn] Reactive node ID ${binding._htmpId} not found. Removed from registry.`);
+        // ⚠️ DELETION: Node sama sekali tidak ketemu di dalam this.dom
+    let detail = '';
+    if (binding.type === 'text') {
+      detail = ` | Proxy Key: "${key}" | Expr: "{{ ${binding.expr} }}"`;
+    } else if (binding.type === 'attribute') {
+      detail = ` | Proxy Key: "${key}" | Attr: :${binding.attrName}="${binding.attrExpr}"`;
+    }
+    
+    console.warn(`[HTMP Warn] Reactive node ID ${binding._htmpId}${detail} not found. Removed from registry.`);
     this.removeBinding(key, binding);
     return null;
   }
@@ -468,7 +487,19 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
           }
         });
       }
-    } 
+    }     
+    else if (realAttrName === 'class') {
+      const staticClass = binding.staticAttrValue || ''; // Baca dari simpanan compile
+      const dynamicClass = String(val || '');
+      const finalClass = `${staticClass} ${dynamicClass}`.replace(/\s+/g, ' ').trim();
+      el.setAttribute('class', finalClass);
+    }    
+    else if (realAttrName === 'style') {
+      const staticStyle = binding.staticAttrValue || ''; // Baca dari simpanan compile
+      const dynamicStyle = String(val || '');
+      const finalStyle = `${staticStyle};${dynamicStyle}`.replace(/;+/g, ';').replace(/^;|;$/g, '').trim();
+      el.setAttribute('style', finalStyle);
+    }      
     else if (val === false || val === null || val === undefined) {
       el.removeAttribute(realAttrName);
     } else if (val === true) {
@@ -647,8 +678,7 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
         else if (attr.name.startsWith(':')) {
           const realAttrName = attr.name.slice(1);
           const expr = attr.value;
-          
-          // Gunakan evalExpr untuk evaluasi atribut di dalam loop
+                    
           const val = this.evalExpr(expr, proxyKeys, itemName, item, parentItemName, parentItem);
 
           if (realAttrName === 'value' && (cEl.tagName === 'INPUT' || cEl.tagName === 'TEXTAREA' || cEl.tagName === 'SELECT')) {
@@ -667,7 +697,20 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
                 }
               });
             }
-          } 
+          }
+          else if (realAttrName === 'class') {
+            const staticClass = tEl.getAttribute('class') || '';
+            const dynamicClass = String(val || '');            
+            const finalClass = `${staticClass} ${dynamicClass}`.replace(/\s+/g, ' ').trim();
+            cEl.setAttribute('class', finalClass);
+          }
+          else if (realAttrName === 'style') {
+            const staticStyle = tEl.getAttribute('style') || '';
+            const dynamicStyle = String(val || '');
+            // Gabungkan dengan ; dan rapikan titik koma ganda
+            const finalStyle = `${staticStyle};${dynamicStyle}`.replace(/;+/g, ';').replace(/^;|;$/g, '').trim();
+            cEl.setAttribute('style', finalStyle);
+          }           
           else if (val === false || val === null || val === undefined) {
             cEl.removeAttribute(realAttrName);
           } else if (val === true) {
@@ -695,13 +738,7 @@ export class HTMP<T extends Record<string, any> = Record<string, any>> {
     const target = document.getElementById(this.rootId);
     if (target && this.dom) {
       target.innerHTML = '';
-      target.appendChild(this.dom);
-      
-      Object.values(this.registry).flat().forEach((b: HtmpBinding) => {
-        if (b.type === 'list' && b.templateNode.parentNode) {
-          b.templateNode.parentNode.removeChild(b.templateNode);
-        }
-      });
+      target.appendChild(this.dom);          
 
       this.isMounted = true;
       

@@ -14,6 +14,7 @@ export interface AttributeBinding {
   path: number[];
   attrName: string;
   attrExpr: string;
+  staticAttrValue: string;
 }
 
 export interface ListBinding {
